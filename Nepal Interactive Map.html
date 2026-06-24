@@ -1,0 +1,1903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nepal – Interactive Map</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js">
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0a0f1e;
+            color: #e0e6f0;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        #topbar {
+            background: linear-gradient(135deg, rgba(10, 15, 30, 0.98), rgba(20, 35, 70, 0.98));
+            border-bottom: 1px solid rgba(100, 150, 255, 0.25);
+            padding: 9px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 1000;
+            flex-shrink: 0;
+        }
+        #topbar h1 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #7eb8ff;
+            letter-spacing: 1px;
+        }
+        #topbar span {
+            font-size: 11px;
+            color: #6677aa;
+        }
+        #main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        #map {
+            flex: 1;
+            height: 100%;
+            background: #1a1f2e;
+        }
+        #leftPanel {
+            width: 280px;
+            background: rgba(8, 12, 28, 0.97);
+            border-right: 1px solid rgba(100, 150, 255, 0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        #rightPanel {
+            width: 250px;
+            background: rgba(8, 12, 28, 0.97);
+            border-left: 1px solid rgba(100, 150, 255, 0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .panel-title {
+            font-size: 10px;
+            color: #7eb8ff;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            padding: 10px 12px 6px;
+            border-bottom: 1px solid rgba(100, 150, 255, 0.1);
+            flex-shrink: 0;
+        }
+        .panel-scroll {
+            overflow-y: auto;
+            flex: 1;
+            padding: 8px;
+        }
+        .panel-scroll::-webkit-scrollbar {
+            width: 3px;
+        }
+        .panel-scroll::-webkit-scrollbar-thumb {
+            background: rgba(100, 150, 255, 0.3);
+            border-radius: 2px;
+        }
+        .layer-item {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 7px;
+            border-radius: 7px;
+            margin-bottom: 3px;
+            cursor: default;
+            transition: background .15s;
+        }
+        .layer-item:hover {
+            background: rgba(100, 150, 255, 0.1);
+        }
+        .ldot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .lname {
+            font-size: 11px;
+            flex: 1;
+            line-height: 1.3;
+        }
+        .lcount {
+            font-size: 10px;
+            color: #445;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 1px 5px;
+            border-radius: 8px;
+            min-width: 18px;
+            text-align: center;
+        }
+        .tog {
+            width: 28px;
+            height: 16px;
+            background: #222;
+            border-radius: 8px;
+            position: relative;
+            cursor: pointer;
+            transition: background .2s;
+            flex-shrink: 0;
+        }
+        .tog.on {
+            background: #3a7fff;
+        }
+        .tog::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 12px;
+            height: 12px;
+            background: #fff;
+            border-radius: 50%;
+            transition: left .2s;
+        }
+        .tog.on::after {
+            left: 14px;
+        }
+        .basemap-btn {
+            display: block;
+            width: 100%;
+            padding: 7px 10px;
+            margin-bottom: 4px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(100, 150, 255, 0.15);
+            border-radius: 7px;
+            color: #aab;
+            font-size: 11px;
+            cursor: pointer;
+            text-align: left;
+            transition: all .15s;
+            user-select: none;
+        }
+        .basemap-btn:hover {
+            background: rgba(100, 150, 255, 0.1);
+        }
+        .basemap-btn.active {
+            background: rgba(100, 150, 255, 0.15);
+            border-color: #7eb8ff;
+            color: #7eb8ff;
+        }
+        #featureDetails {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 7px;
+            padding: 10px;
+            margin-top: 10px;
+            border-left: 3px solid #3a7fff;
+        }
+        #featureDetails .fname {
+            font-size: 14px;
+            font-weight: 700;
+            color: #7eb8ff;
+            margin-bottom: 2px;
+        }
+        #featureDetails .ftype {
+            font-size: 10px;
+            color: #6677aa;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        #featureDetails .fdesc {
+            font-size: 12px;
+            color: #aab;
+            margin-bottom: 4px;
+            line-height: 1.5;
+        }
+        #featureDetails .fpop {
+            font-size: 12px;
+            color: #aab;
+        }
+        #featureDetails .fempty {
+            color: #445;
+            font-size: 11px;
+            font-style: italic;
+        }
+        #hint {
+            background: rgba(8, 12, 28, 0.9);
+            border-top: 1px solid rgba(100, 150, 255, 0.1);
+            padding: 5px 14px;
+            font-size: 10px;
+            color: #6677aa;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .leaflet-popup-content-wrapper {
+            background: rgba(8, 12, 28, 0.97) !important;
+            border: 1px solid rgba(100, 150, 255, 0.3) !important;
+            border-radius: 10px !important;
+            color: #e0e6f0 !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .7) !important;
+        }
+        .leaflet-popup-tip {
+            background: rgba(8, 12, 28, 0.97) !important;
+        }
+        .leaflet-popup-content {
+            margin: 12px !important;
+            font-family: 'Segoe UI', sans-serif !important;
+        }
+        .ptitle {
+            font-size: 13px;
+            font-weight: 700;
+            color: #7eb8ff;
+            margin-bottom: 3px;
+        }
+        .ptype {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #556;
+            margin-bottom: 5px;
+        }
+        .pinfo {
+            font-size: 11px;
+            color: #aab;
+            line-height: 1.5;
+        }
+        .leaflet-popup-close-button {
+            color: #7eb8ff !important;
+            font-size: 16px !important;
+        }
+        .mkr {
+            line-height: 1;
+            cursor: pointer;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .8));
+            transition: transform .15s;
+            user-select: none;
+        }
+        .mkr:hover {
+            transform: scale(1.2);
+        }
+        .section-label {
+            font-size: 9px;
+            color: #445;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 8px 7px 3px;
+            margin-top: 4px;
+        }
+        .divider {
+            height: 1px;
+            background: rgba(100, 150, 255, 0.1);
+            margin: 8px 0;
+        }
+        .drawing-cursor {
+            cursor: crosshair !important;
+        }
+        .editing-cursor {
+            cursor: pointer !important;
+        }
+        #toolbar {
+            position: absolute;
+            top: 55px;
+            left: 300px;
+            z-index: 2000;
+            background: rgba(8, 16, 28, 0.96);
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(60, 130, 255, 0.35);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            max-width: 520px;
+            backdrop-filter: blur(6px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .6);
+        }
+        #toolbar button {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(100, 150, 255, 0.2);
+            border-radius: 6px;
+            color: #c8d0e0;
+            font-size: 11px;
+            padding: 5px 11px;
+            cursor: pointer;
+            transition: all .15s;
+            user-select: none;
+            font-family: 'Segoe UI', sans-serif;
+            white-space: nowrap;
+            line-height: 1.4;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #toolbar button:hover {
+            background: rgba(100, 150, 255, 0.15);
+            border-color: rgba(100, 150, 255, 0.4);
+            color: #fff;
+        }
+        #toolbar button:active {
+            transform: scale(0.96);
+        }
+        #toolbar button.active-mode {
+            background: rgba(60, 130, 255, 0.25);
+            border-color: #3a7fff;
+            color: #7eb8ff;
+            box-shadow: 0 0 12px rgba(60, 130, 255, 0.15);
+        }
+        #toolbar .sep {
+            width: 1px;
+            background: rgba(100, 150, 255, 0.15);
+            margin: 2px 2px;
+            flex-shrink: 0;
+        }
+        #toolbar .btn-primary {
+            background: #1a4a8a;
+            border-color: #3a7fff;
+            color: #fff;
+        }
+        #toolbar .btn-primary:hover {
+            background: #2a5aaa;
+            border-color: #5a9aff;
+        }
+        #toolbar .btn-success {
+            background: #1a6a3a;
+            border-color: #2a9a5a;
+            color: #fff;
+        }
+        #toolbar .btn-success:hover {
+            background: #2a7a4a;
+            border-color: #3aaa6a;
+        }
+        #toolbar .btn-danger {
+            background: #6a1a1a;
+            border-color: #aa2a2a;
+            color: #ff8888;
+        }
+        #toolbar .btn-danger:hover {
+            background: #8a2a2a;
+            border-color: #cc3a3a;
+        }
+        #toolbar input[type="range"] {
+            width: 70px;
+            height: 4px;
+            background: #334;
+            border-radius: 2px;
+            -webkit-appearance: none;
+            appearance: none;
+            outline: none;
+            margin: 0 4px;
+            align-self: center;
+        }
+        #toolbar input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #3a7fff;
+            cursor: pointer;
+            border: 2px solid #0a0f1e;
+        }
+        #toolbar input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #3a7fff;
+            cursor: pointer;
+            border: 2px solid #0a0f1e;
+        }
+        #toolbar .range-label {
+            font-size: 10px;
+            color: #6677aa;
+            align-self: center;
+            margin-right: 2px;
+        }
+        #finishBtn {
+            display: none;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+            animation: fadeIn .2s ease;
+        }
+        .modal-overlay.hidden {
+            display: none;
+        }
+        .modal-box {
+            background: #111a2e;
+            border: 1px solid rgba(100, 150, 255, 0.3);
+            border-radius: 14px;
+            padding: 28px 34px 30px;
+            max-width: 440px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, .8);
+            animation: slideUp .25s ease;
+        }
+        .modal-box h2 {
+            color: #7eb8ff;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+        .modal-box .sub {
+            color: #6677aa;
+            font-size: 12px;
+            margin-bottom: 18px;
+        }
+        .modal-box .opt-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 12px 0 20px;
+        }
+        .modal-box .opt-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 2px solid rgba(100, 150, 255, 0.15);
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: #c8d0e0;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all .15s;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            user-select: none;
+        }
+        .modal-box .opt-btn:hover {
+            background: rgba(100, 150, 255, 0.08);
+            border-color: rgba(100, 150, 255, 0.4);
+        }
+        .modal-box .opt-btn .emoji-big {
+            font-size: 26px;
+        }
+        .modal-box .opt-btn .opt-label {
+            font-weight: 500;
+        }
+        .modal-box .opt-btn .opt-desc {
+            font-size: 11px;
+            color: #6677aa;
+            font-weight: 400;
+        }
+        .modal-box .cancel-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(100, 150, 255, 0.1);
+            border-radius: 8px;
+            padding: 8px 18px;
+            color: #6677aa;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all .15s;
+            user-select: none;
+            margin-top: 4px;
+        }
+        .modal-box .cancel-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #aab;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        #fileInput {
+            display: none;
+        }
+        ::-webkit-scrollbar {
+            width: 3px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 150, 255, 0.3);
+            border-radius: 2px;
+        }
+        @media (max-width: 920px) {
+            #leftPanel {
+                width: 200px;
+            }
+            #rightPanel {
+                width: 180px;
+            }
+            #toolbar {
+                left: 10px;
+                top: 50px;
+                max-width: calc(100% - 20px);
+                padding: 6px 8px;
+                gap: 3px;
+            }
+            #toolbar button {
+                font-size: 10px;
+                padding: 4px 8px;
+                height: 26px;
+            }
+            #toolbar input[type="range"] {
+                width: 50px;
+            }
+        }
+        @media (max-width: 640px) {
+            #leftPanel {
+                display: none;
+            }
+            #rightPanel {
+                display: none;
+            }
+            #toolbar {
+                left: 6px;
+                top: 46px;
+                max-width: calc(100% - 12px);
+                padding: 5px 6px;
+                gap: 2px;
+                border-radius: 6px;
+            }
+            #toolbar button {
+                font-size: 9px;
+                padding: 3px 6px;
+                height: 22px;
+            }
+            #topbar h1 {
+                font-size: 12px;
+            }
+            #topbar span {
+                font-size: 9px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="topbar">
+        <h1>🏔️ NEPAL – COMPLETE MAP</h1>
+        <span>Metro+SubMetro · All Municipalities · Airports · Tourism · Heritage · Parks</span>
+    </div>
+
+    <div id="main">
+        <div id="leftPanel">
+            <div class="panel-scroll">
+                <div class="section-label">Base Map</div>
+		<button class="basemap-btn" onclick="switchBase('offline_satellite',this)" type="button">🛰️ Satellite Offline</button>
+                <button class="basemap-btn active" onclick="switchBase('satellite',this)" type="button">🛰️ Satellite</button>
+                <button class="basemap-btn" onclick="switchBase('topo',this)" type="button">🗻 Topo / Terrain</button>
+                <button class="basemap-btn" onclick="switchBase('streets',this)" type="button">🗺️ Streets</button>
+                <button class="basemap-btn" onclick="switchBase('outdoor',this)" type="button">🌿 Outdoor</button>
+                <div class="divider"></div>
+                <div class="section-label">Selected Feature</div>
+                <div id="featureDetails"><div class="fempty">Click a feature to see details</div></div>
+            </div>
+        </div>
+
+        <div id="map"></div>
+
+        <div id="rightPanel">
+            <div class="panel-title">🗂️ Layers</div>
+            <div class="panel-scroll" id="layerList"></div>
+        </div>
+    </div>
+
+    <div id="hint">Scroll to zoom · Drag to pan · Click any feature for info</div>
+
+    <!-- ─── TOOLBAR ─── -->
+    <div id="toolbar" style="margin-left:50px; style="padding-left:20px;>
+        <button onclick="toggleEditMode('city')" id="btnCity">🏙️ Add City</button>
+        <button onclick="toggleEditMode('airport')" id="btnAirport">✈️ Add Airport</button>
+        <button onclick="toggleEditMode('protected')" id="btnProtected">🌳 Add Protected Area</button>
+        <span class="sep"></span>
+        <button onclick="toggleEditMode('highway')" id="btnHighway">🛣️ Highway</button>
+        <button onclick="toggleEditMode('expressway')" id="btnExpressway">🚄 Expressway</button>
+        <button onclick="toggleEditMode('railway')" id="btnRailway">🚂 Railway</button>
+        <span class="sep"></span>
+        <button onclick="toggleEditMode('edit')" id="btnEdit">✏️ Edit</button>
+        <button onclick="toggleEditMode('delete')" id="btnDelete" class="btn-danger">🗑️ Delete</button>
+        <button id="finishBtn" onclick="finishDrawing()" class="btn-success">✅ Finish</button>
+        <span class="sep"></span>
+        <button onclick="saveData()" class="btn-primary">💾 Save</button>
+        <button onclick="document.getElementById('fileInput').click()" class="btn-primary">📂 Load</button>
+        <input type="file" id="fileInput" accept=".json" onchange="loadDataFromFile(event)" />
+        <span class="sep"></span>
+        <span class="range-label">🔍</span>
+        <input type="range" id="iconSize" min="12" max="48" value="24" oninput="updateIconSize(this.value)" />
+    </div>
+
+    <!-- ─── CITY TYPE MODAL ─── -->
+    <div class="modal-overlay hidden" id="cityTypeModal">
+        <div class="modal-box">
+            <h2>🏙️ Add City</h2>
+            <div class="sub">Choose the type of city you want to add</div>
+            <div class="opt-group">
+                <button class="opt-btn" onclick="chooseCityType('metro')" type="button">
+                    <span class="emoji-big">🏙️</span>
+                    <span><span class="opt-label">Metropolitan / Sub‑Metropolitan</span><br /><span class="opt-desc">Major cities with high population &amp; status</span></span>
+                </button>
+                <button class="opt-btn" onclick="chooseCityType('municipality')" type="button">
+                    <span class="emoji-big">🏘️</span>
+                    <span><span class="opt-label">Municipality</span><br /><span class="opt-desc">Smaller towns and urban centres</span></span>
+                </button>
+            </div>
+            <button class="cancel-btn" onclick="closeCityModal()" type="button">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        // ─── CONFIG ──────────────────────────────────────────────────────────
+        const KEY = 'PTgTrHgEHfu7UKof7lQG';
+
+        // ─── BASE MAPS ──────────────────────────────────────────────────────
+        const BASES = {
+            satellite: `https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=${KEY}`,
+            topo: `https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png`,
+            streets: `https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${KEY}`,
+            outdoor: `https://api.maptiler.com/maps/outdoor-v2/{z}/{x}/{y}.png?key=${KEY}`,
+	    offline_satellite: 'http://localhost:8080/data/openmaptiles_satellite/{z}/{x}/{y}.jpg',
+	   
+        };
+
+        // ─── INIT MAP ──────────────────────────────────────────────────────
+        const map = L.map('map', { center: [28.25, 84.12], zoom: 7, zoomControl: true });
+        let baseLayer = L.tileLayer(BASES.satellite, { attribution: '© MapTiler © OpenStreetMap', maxZoom: 18 }).addTo(map);
+
+        function switchBase(key, btn) {
+            map.removeLayer(baseLayer);
+            baseLayer = L.tileLayer(BASES[key], { attribution: '© MapTiler © OpenStreetMap', maxZoom: 18 }).addTo(map);
+            baseLayer.bringToBack();
+            document.querySelectorAll('.basemap-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        // ─── LAYER SYSTEM ──────────────────────────────────────────────────
+        const LAYERS = {
+            metro: { name: 'Metropolitan & Sub-Metropolitan', color: '#ff4444', emoji: '🏙️', visible: false, group: L
+                    .layerGroup(), features: [] },
+            cities: { name: 'Municipalities (all towns)', color: '#44ccff', emoji: '🏘️', visible: false, group: L
+                    .layerGroup(), features: [] },
+            tourism: { name: 'Tourism Settlements', color: '#ff66aa', emoji: '🏡', visible: false, group: L.layerGroup(),
+                features: [] },
+            airports: { name: 'Airports', color: '#67e8f9', emoji: '✈️', visible: false, group: L.layerGroup(),
+                features: [] },
+            heritage: { name: 'Heritage Sites', color: '#f97316', emoji: '🏛️', visible: false, group: L.layerGroup(),
+                features: [] },
+            nationalparks: { name: 'Protected Areas', color: '#2e8b57', emoji: '🌳', visible: false, group: L.layerGroup(),
+                features: [] },
+            highways: { name: 'Highways', color: '#ff6b35', emoji: '🛣️', visible: false, group: L.layerGroup(),
+                features: [] },
+            expressways: { name: 'Expressways', color: '#2563EB', emoji: '🚄', visible: false, group: L.layerGroup(),
+                features: [] },
+            railways: { name: 'Railways', color: '#a78bfa', emoji: '🚂', visible: false, group: L.layerGroup(),
+                features: [] },
+	    
+        };
+
+        // ─── USER FEATURES ──────────────────────────────────────────────────
+        let userFeatures = [];
+        let selectedFeature = null;
+        let currentIconSize = 24;
+        let editMode = null;
+        let isDrawing = false;
+        let currentRoadPoints = [];
+        let currentRoadLayer = null;
+        let currentRoadType = null;
+        let pendingCityLatLng = null;
+        let pendingCityType = null;
+
+        // ─── HELPERS ────────────────────────────────────────────────────────
+        function updateIconSize(val) { currentIconSize = parseInt(val) || 24; }
+
+        function getCityIconSize(pop) {
+            const base = currentIconSize;
+            if (pop >= 1000000) return Math.min(base + 20, 48);
+            if (pop >= 500000) return Math.min(base + 12, 44);
+            if (pop >= 200000) return Math.min(base + 6, 38);
+            if (pop >= 100000) return Math.min(base, 32);
+            if (pop >= 50000) return Math.max(base - 4, 16);
+            return Math.max(base - 8, 12);
+        }
+
+        function mkIcon(emoji, size) {
+            const s = size || currentIconSize || 24;
+            return L.divIcon({
+                html: `<div class="mkr" style="font-size:${s}px">${emoji}</div>`,
+                className: '',
+                iconSize: [s, s],
+                iconAnchor: [s / 2, s / 2],
+                popupAnchor: [0, -s / 2 - 4]
+            });
+        }
+
+        // ─── FIXED: protectedCircle uses meter radius ─────────────────────
+        function protectedCircle(area) {
+            // Convert area (km²) to radius in meters
+            const radiusKm = Math.sqrt((area || 100) / Math.PI);
+            let radiusMeters = radiusKm * 1000;
+            // Ensure a minimum visible radius (e.g., 200 meters)
+            radiusMeters = Math.max(radiusMeters, 200);
+            return {
+                radius: radiusMeters,
+                color: '#2e8b57',
+                weight: 2,
+                fillColor: '#2e8b57',
+                fillOpacity: 0.25,
+                className: 'protected-circle'
+            };
+        }
+
+        function popupHTML(emoji, name, layerName, info, pop, popLabel, area, areaLabel) {
+            let extra = '';
+            if (pop !== undefined && pop !== null) {
+                const label = popLabel || '👥 Population';
+                extra += `${label}: ${pop.toLocaleString()}`;
+            }
+            if (area !== undefined && area !== null) {
+                const label = areaLabel || '📐 Area';
+                if (extra) extra += ' · ';
+                extra += `${label}: ${area.toLocaleString()} km²`;
+            }
+            return `<div class="ptitle">${emoji} ${name}</div><div class="ptype">${layerName}</div><div class="pinfo">${info}${extra ? ' · ' + extra : ''}</div>`;
+        }
+
+        function buildExtraString(data) {
+            let parts = [];
+            if (data.population) {
+                const label = data.popLabel || '👥 Population';
+                parts.push(`${label} ${data.population.toLocaleString()}`);
+            }
+            if (data.area) {
+                const label = data.areaLabel || '📐 Area';
+                parts.push(`${label} ${data.area.toLocaleString()} km²`);
+            }
+            return parts.length ? ' · ' + parts.join(' · ') : '';
+        }
+
+        function registerFeature(obj, data) {
+            obj.featureData = data;
+            obj.on('click', function() {
+                if (editMode === 'delete') {
+                    if (this.featureData.preset) { alert('Preset features cannot be deleted.'); return; }
+                    this.remove();
+                    const layerKey = this.featureData.layer;
+                    if (layerKey && LAYERS[layerKey]) {
+                        const idx = LAYERS[layerKey].features.indexOf(this);
+                        if (idx !== -1) LAYERS[layerKey].features.splice(idx, 1);
+                    }
+                    const uIdx = userFeatures.indexOf(this.featureData);
+                    if (uIdx !== -1) userFeatures.splice(uIdx, 1);
+                    renderLayerPanel();
+                    if (selectedFeature === this.featureData) showFeatureDetails(null);
+                    return;
+                }
+                if (editMode === 'edit') {
+                    const newName = prompt('New name:', this.featureData.name);
+                    if (newName === null) return;
+                    const newDesc = prompt('New description:', this.featureData.description) || '';
+                    this.featureData.name = newName;
+                    this.featureData.description = newDesc;
+                    const extra = buildExtraString(this.featureData);
+                    this.bindPopup(popupHTML(this.featureData.emoji, newName, this.featureData.layerName, newDesc + extra,
+                        this.featureData.population, this.featureData.popLabel,
+                        this.featureData.area, this.featureData.areaLabel));
+                    if (selectedFeature === this.featureData) showFeatureDetails(this.featureData);
+                    return;
+                }
+                showFeatureDetails(this.featureData);
+                this.openPopup();
+            });
+        }
+
+        function showFeatureDetails(data) {
+            const panel = document.getElementById('featureDetails');
+            if (!data) { panel.innerHTML = `<div class="fempty">Click a feature to see details</div>`; selectedFeature =
+                null; return; }
+            selectedFeature = data;
+            let html = `<div class="fname">${data.emoji||''} ${data.name}</div>`;
+            html += `<div class="ftype">${data.layerName||''}</div>`;
+            if (data.description) html += `<div class="fdesc">${data.description}</div>`;
+            if (data.population) {
+                const label = data.popLabel || '👥 Population';
+                html += `<div class="fpop">${label}: ${data.population.toLocaleString()}</div>`;
+            }
+            if (data.area) {
+                const label = data.areaLabel || '📐 Area';
+                html += `<div class="fpop">${label}: ${data.area.toLocaleString()} km²</div>`;
+            }
+            panel.innerHTML = html;
+        }
+
+        // ─── EDIT MODE TOGGLE ──────────────────────────────────────────────
+        function toggleEditMode(mode) {
+            if (editMode === mode) { setEditMode(null); return; }
+            setEditMode(mode);
+        }
+
+        function setEditMode(mode) {
+            if (isDrawing && currentRoadLayer) {
+                const choice = confirm('You are currently drawing a road. Click OK to finish, Cancel to discard.');
+                if (choice) finishDrawing();
+                else cancelDrawing();
+            }
+            pendingCityLatLng = null;
+            pendingCityType = null;
+            editMode = mode;
+            updateCursor();
+            updateHint();
+            const finishBtn = document.getElementById('finishBtn');
+            if (mode === 'highway' || mode === 'expressway' || mode === 'railway') {
+                finishBtn.style.display = 'inline-flex';
+                isDrawing = true;
+            } else {
+                finishBtn.style.display = 'none';
+                isDrawing = false;
+            }
+            document.querySelectorAll('#toolbar button').forEach(b => b.classList.remove('active-mode'));
+            if (mode) {
+                const btnMap = { city: 'btnCity', airport: 'btnAirport', protected: 'btnProtected',
+                    highway: 'btnHighway', expressway: 'btnExpressway', railway: 'btnRailway',
+                    edit: 'btnEdit', delete: 'btnDelete' };
+                const id = btnMap[mode];
+                if (id) {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.add('active-mode');
+                }
+            }
+        }
+
+        function updateCursor() {
+            const mc = document.getElementById('map');
+            if (editMode === 'highway' || editMode === 'expressway' || editMode === 'railway' ||
+                editMode === 'city' || editMode === 'airport' || editMode === 'protected') {
+                mc.classList.add('drawing-cursor');
+                mc.classList.remove('editing-cursor');
+            } else if (editMode === 'edit' || editMode === 'delete') {
+                mc.classList.remove('drawing-cursor');
+                mc.classList.add('editing-cursor');
+            } else {
+                mc.classList.remove('drawing-cursor', 'editing-cursor');
+            }
+        }
+
+        function updateHint() {
+            const hint = document.getElementById('hint');
+            if (editMode === 'highway') hint.textContent = '🛣️ Click to add points, double-click or Finish to complete.';
+            else if (editMode === 'expressway') hint.textContent = '🚄 Click to add points, double-click or Finish to complete.';
+            else if (editMode === 'railway') hint.textContent = '🚂 Click to add points, double-click or Finish to complete.';
+            else if (editMode === 'city') hint.textContent = '🏙️ Click on map to add a city – choose type in the popup.';
+            else if (editMode === 'airport') hint.textContent = '✈️ Click on map to add an airport.';
+            else if (editMode === 'protected') hint.textContent = '🌳 Click on map to add a protected area.';
+            else if (editMode === 'edit') hint.textContent = '✏️ Click a feature to edit its name/description.';
+            else if (editMode === 'delete') hint.textContent = '🗑️ Click a user‑added feature to delete it.';
+            else hint.textContent = 'Scroll to zoom · Drag to pan · Click any feature for info';
+        }
+
+        // ─── CITY MODAL ─────────────────────────────────────────────────────
+        function chooseCityType(type) {
+            pendingCityType = type;
+            closeCityModal();
+            if (pendingCityLatLng) {
+                addCityAt(pendingCityLatLng, type);
+                pendingCityLatLng = null;
+            }
+            setEditMode(null);
+        }
+
+        function closeCityModal() {
+            document.getElementById('cityTypeModal').classList.add('hidden');
+        }
+
+        function showCityModal() {
+            document.getElementById('cityTypeModal').classList.remove('hidden');
+        }
+
+        function addCityAt(latlng, type) {
+            const name = prompt('City name:');
+            if (!name) return;
+            const desc = prompt('Description:') || '';
+            const pop = parseInt(prompt('Population:') || '0');
+            const size = getCityIconSize(pop);
+            let layerKey, emoji, layerName;
+            if (type === 'metro') {
+                layerKey = 'metro';
+                emoji = '🏙️';
+                layerName = 'Metropolitan / Sub‑Metropolitan';
+            } else {
+                layerKey = 'cities';
+                emoji = '🏘️';
+                layerName = 'Municipality';
+            }
+            const marker = L.marker(latlng, { icon: mkIcon(emoji, size) }).addTo(LAYERS[layerKey].group);
+            const extra = pop ? ` · 👥 Population ${pop.toLocaleString()}` : '';
+            marker.bindPopup(popupHTML(emoji, name, layerName, desc + extra, pop));
+            const data = { name, description: desc, population: pop, layerName, emoji, preset: false, layer: layerKey,
+                popLabel: '👥 Population', cityType: type };
+            registerFeature(marker, data);
+            LAYERS[layerKey].features.push(marker);
+            userFeatures.push(data);
+            renderLayerPanel();
+            showFeatureDetails(data);
+        }
+
+        // ─── ROAD DRAWING ──────────────────────────────────────────────────
+        function startRoad(type, latlng) {
+            if (!currentRoadLayer) {
+                currentRoadType = type;
+                currentRoadPoints = [
+                    [latlng.lat, latlng.lng]
+                ];
+                let style = {};
+                let targetLayer;
+                if (type === 'highway') { style = { color: '#ff6b35', weight: 5 };
+                    targetLayer = LAYERS.highways.group; } else if (type === 'expressway') { style = { color: '#2563EB',
+                        weight: 6 };
+                    targetLayer = LAYERS.expressways.group; } else if (type === 'railway') { style = { color: '#a78bfa',
+                        weight: 4, dashArray: '8,4' };
+                    targetLayer = LAYERS.railways.group; }
+                currentRoadLayer = L.polyline(currentRoadPoints, style).addTo(targetLayer);
+                isDrawing = true;
+                document.getElementById('finishBtn').style.display = 'inline-flex';
+            } else {
+                currentRoadPoints.push([latlng.lat, latlng.lng]);
+                currentRoadLayer.setLatLngs(currentRoadPoints);
+            }
+        }
+
+        function finishDrawing() {
+            if (!currentRoadLayer || currentRoadPoints.length < 2) { alert('Draw at least two points.'); return; }
+            const name = prompt('Road name:') || 'Road';
+            const desc = prompt('Description:') || '';
+            let emoji, layerName, layerKey;
+            if (currentRoadType === 'expressway') { emoji = '🚄';
+                layerName = 'Expressway';
+                layerKey = 'expressways'; } else if (currentRoadType === 'railway') { emoji = '🚂';
+                layerName = 'Railway';
+                layerKey = 'railways'; } else { emoji = '🛣️';
+                layerName = 'Highway';
+                layerKey = 'highways'; }
+            const data = { name, description: desc, layerName, emoji, preset: false, layer: layerKey };
+            currentRoadLayer.bindPopup(popupHTML(emoji, name, layerName, desc));
+            registerFeature(currentRoadLayer, data);
+            LAYERS[layerKey].features.push(currentRoadLayer);
+            userFeatures.push(data);
+            renderLayerPanel();
+            currentRoadLayer = null;
+            currentRoadPoints = [];
+            currentRoadType = null;
+            isDrawing = false;
+            document.getElementById('finishBtn').style.display = 'none';
+            setEditMode(null);
+            showFeatureDetails(data);
+        }
+
+        function cancelDrawing() {
+            if (currentRoadLayer) currentRoadLayer.remove();
+            currentRoadLayer = null;
+            currentRoadPoints = [];
+            currentRoadType = null;
+            isDrawing = false;
+            document.getElementById('finishBtn').style.display = 'none';
+            setEditMode(null);
+        }
+
+        // ─── FIXED: addProtectedArea uses L.circle ────────────────────────
+        function addProtectedArea(latlng) {
+            const name = prompt('Protected Area name:');
+            if (!name) return;
+            const desc = prompt('Description:') || '';
+            const area = parseFloat(prompt('Area (km²):') || '0');
+            const circleStyle = protectedCircle(area);
+            const circle = L.circle(latlng, circleStyle).addTo(LAYERS.nationalparks.group);
+            const extra = area ? ` · 📐 Area ${area.toLocaleString()} km²` : '';
+            circle.bindPopup(popupHTML('🌳', name, 'Protected Area', desc + extra, null, null, area, '📐 Area'));
+            const data = { name, description: desc, area, layerName: 'Protected Area', emoji: '🌳', preset: false,
+                layer: 'nationalparks', areaLabel: '📐 Area' };
+            registerFeature(circle, data);
+            LAYERS.nationalparks.features.push(circle);
+            userFeatures.push(data);
+            renderLayerPanel();
+            showFeatureDetails(data);
+            setEditMode(null);
+        }
+
+        // ─── DATA ────────────────────────────────────────────────────────────
+
+        // 1. Metropolitan & Sub-Metropolitan
+        const METRO_SUB_DATA = [
+            { n: 'Kathmandu', c: [27.7172, 85.3240], pop: 1400000,
+                desc: 'Kathmandu is the capital and largest city of Nepal, serving as the political, cultural, and economic heart of the country. Located in the Kathmandu Valley, it is home to numerous UNESCO World Heritage Sites, including Durbar Squares and ancient temples. The city\'s vibrant streets are filled with a mix of traditional Newar architecture and modern development. With a population of over 1.4 million, it is a bustling metropolis that attracts visitors from around the globe. The city is also a gateway to the Himalayas and a hub for tourism and business.' },
+            { n: 'Pokhara', c: [28.2096, 83.9856], pop: 500000,
+                desc: 'Pokhara is the tourism capital of Nepal, nestled beside the serene Phewa Lake and with stunning views of the Annapurna range. It is the starting point for many treks, including the famous Annapurna Circuit. The city offers a mix of adventure sports, peaceful lakeside relaxation, and vibrant nightlife. With a population of around 500,000, it is the second-largest city and a major hub for both domestic and international tourists. Pokhara\'s international airport, opened in 2023, has further boosted its connectivity and importance.' },
+            { n: 'Lalitpur', c: [27.6588, 85.3166], pop: 200000,
+                desc: 'Lalitpur, also known as Patan, is an ancient Newar city in the Kathmandu Valley, renowned for its exquisite arts and crafts. It is home to the Patan Durbar Square, a UNESCO World Heritage Site, and the Patan Museum, which houses a rich collection of traditional statues. The city is a center for metalwork, woodcarving, and stone sculpture, preserving the artistic traditions of the Newar people. With a population of around 200,000, it is a vibrant cultural and educational hub. The city\'s well-preserved medieval architecture attracts scholars and tourists alike.' },
+            { n: 'Bharatpur', c: [27.6812, 84.4305], pop: 200000,
+                desc: 'Bharatpur is a rapidly growing city in Chitwan district, serving as the gateway to Chitwan National Park, a UNESCO World Heritage Site. It is an important agricultural and commercial center, with a thriving tourism industry based on wildlife safaris and jungle activities. The city has seen significant development in recent years, with improved infrastructure and healthcare facilities. With a population of about 200,000, it is one of the major cities in the Terai region. Bharatpur is also a key educational hub, hosting several colleges and training institutions.' },
+            { n: 'Biratnagar', c: [26.4525, 87.2718], pop: 240000,
+                desc: 'Biratnagar is a major industrial city in eastern Nepal, located near the border with India. It is the second-largest city in the country and a vital trade and commerce center, especially for jute and other agricultural products. The city is also an educational and health hub, with a university and several hospitals. With a population of over 240,000, it is a bustling metropolis with a mix of traditional and modern lifestyles. Biratnagar\'s airport connects it to Kathmandu and other domestic destinations, supporting its economic activities.' },
+            { n: 'Birgunj', c: [27.0100, 84.8771], pop: 200000,
+                desc: 'Birgunj is a key border town in southern Nepal, acting as a major gateway for trade between Nepal and India. It is an industrial and commercial hub, with a significant presence of factories and warehouses. The city is also a cultural melting pot, with a diverse population that reflects the Terai\'s rich heritage. With a population of around 200,000, it is one of the largest cities in the Terai. Birgunj\'s strategic location has made it a center for transportation and logistics, driving its economic growth.' },
+            { n: 'Janakpur', c: [26.7288, 85.9237], pop: 100000,
+                desc: 'Janakpur is a historic and religious city in southern Nepal, known as the birthplace of Goddess Sita and the site of the Janaki Temple. It is an important pilgrimage destination for Hindus from Nepal and India, especially during the Vivaha Panchami festival. The city\'s architecture is influenced by the Mithila region, with intricate artwork and bright colors. With a population of about 100,000, it is a cultural and educational center, hosting a university and various colleges. Janakpur also has a domestic airport, facilitating pilgrim travel.' },
+            { n: 'Dharan', c: [26.8120, 87.2844], pop: 100000,
+                desc: 'Dharan is a prominent city in eastern Nepal, located at the foot of the hills. It is a major educational and medical hub, home to the BP Koirala Institute of Health Sciences, one of Nepal\'s premier medical colleges. The city is also an important trade center, with markets serving the surrounding region. With a population of around 100,000, it has a diverse population and a pleasant climate. Dharan is known for its cultural festivals and friendly atmosphere, attracting people from all over the country.' },
+            { n: 'Butwal', c: [27.7005, 83.4479], pop: 120000,
+                desc: 'Butwal is a commercial city in western Nepal, situated in the Terai near the Indian border. It serves as a gateway to the tourist destinations of Lumbini and the Himalayas. The city is a hub for trade, industry, and transportation, with a growing manufacturing sector. With a population of about 120,000, it is one of the most rapidly developing cities in Nepal. Butwal\'s strategic location and infrastructure have made it an attractive destination for businesses and investors.' },
+            { n: 'Hetauda', c: [27.4270, 85.0310], pop: 100000,
+                desc: 'Hetauda is the capital of Bagmati Province and an industrial city in central Nepal. It is situated in a valley between the Mahabharat and Churia ranges, making it a key transportation link between the hills and the Terai. The city has a strong manufacturing base, with numerous factories producing cement, steel, and other goods. With a population of around 100,000, it is a growing urban center with modern amenities. Hetauda\'s pleasant climate and scenic surroundings also make it a popular residential area.' },
+            { n: 'Dhangadhi', c: [28.6891, 80.5973], pop: 100000,
+                desc: 'Dhangadhi is the largest city in far-western Nepal, serving as a regional administrative, commercial, and educational hub. It is located in the Terai near the Indian border, facilitating cross-border trade. The city has seen significant development in recent years, with improved roads and healthcare facilities. With a population of about 100,000, it is a center for agriculture and agro-processing. Dhangadhi\'s airport connects it to Kathmandu, supporting its role as a gateway to the far-western region.' },
+            { n: 'Nepalgunj', c: [28.0500, 81.6109], pop: 150000,
+                desc: 'Nepalgunj is a major city in western Nepal, located in the Terai near Bardiya National Park. It is a trade and transportation hub, with a large market serving the surrounding region. The city is also a gateway to the Karnali zone and the Himalayan areas. With a population of about 150,000, it is one of the most ethnically diverse cities in Nepal. Nepalgunj has a domestic airport and is known for its vibrant bazaars and cultural events.' },
+            { n: 'Tulsipur', c: [28.1333, 82.2833], pop: 60000,
+                desc: 'Tulsipur is a historical city in the Dang district, with a rich past linked to the Rana dynasty. It is an important commercial and educational center, with a growing economy based on agriculture and trade. The city is also a gateway to the Dang Valley, a fertile agricultural region. With a population of about 60,000, it is a medium-sized city with a pleasant climate. Tulsipur\'s cultural heritage and natural beauty attract visitors interested in history and nature.' },
+            { n: 'Itahari', c: [26.6500, 87.2833], pop: 80000,
+                desc: 'Itahari is a rapidly growing city in the Sunsari district, located in eastern Nepal. It is an important trade and industrial center, with a major market and several factories. The city is also an educational hub, with numerous schools and colleges. With a population of about 80,000, it has experienced significant urban expansion in recent years. Itahari\'s strategic location on the East-West Highway makes it a key transportation link.' },
+            { n: 'Damak', c: [26.6667, 87.7000], pop: 75000,
+                desc: 'Damak is a city in the Jhapa district, known for its tea gardens and agricultural produce. It is a rapidly developing town, with a growing economy based on trade and manufacturing. The city is also a cultural center, with diverse ethnic communities and festivals. With a population of about 75,000, it is one of the larger cities in the eastern Terai. Damak\'s scenic surroundings and moderate climate make it a pleasant place to live.' },
+            { n: 'Kalaiya', c: [27.0333, 85.0167], pop: 70000,
+                desc: 'Kalaiya is a town in the Bara district, serving as a local commercial and agricultural center. It is located in the Terai, with a significant market for crops and livestock. The city is also a transportation hub, with roads connecting to Birgunj and other major cities. With a population of about 70,000, it is a growing urban centre with a mix of traditional and modern life. Kalaiya\'s proximity to the Indian border facilitates cross-border trade.' },
+            { n: 'Jitpursimara', c: [27.1333, 85.0667], pop: 70000,
+                desc: 'Jitpursimara is a town in the Bara district, known for its industrial and trade activities. It is located near the Indian border, making it a key point for import and export. The city has a number of factories and is also a center for agricultural marketing. With a population of about 70,000, it is a developing urban centre. Jitpursimara\'s infrastructure has been improving, supporting its economic growth.' },
+        ];
+
+        // 2. Municipalities – full list (filtered out metro)
+        const metroNames = new Set(METRO_SUB_DATA.map(d => d.n));
+        const MUNI_RAW = [
+
+  ["Mangalsen", 29.1800, 81.2100, 26557, "Achham"],
+  ["Panchadewal Binayak", 29.0800, 81.3500, 26088, "Achham"],
+  ["Sanphebagar", 29.2500, 81.1700, 25891, "Achham"],
+  ["Kamalbazar", 29.1200, 81.1800, 21032, "Achham"],
+  ["Sandhikharka", 27.9800, 83.0900, 42492, "Arghakhanchi"],
+  ["Sitganga", 27.9000, 83.1500, 37691, "Arghakhanchi"],
+  ["Bhumikasthan", 27.9500, 83.0200, 28192, "Arghakhanchi"],
+  ["Baglung", 28.2700, 83.5900, 56102, "Baglung"],
+  ["Galkot", 28.1500, 83.5000, 30588, "Baglung"],
+  ["Dhorpatan", 28.5200, 83.0700, 30068, "Baglung"],
+  ["Jaimini", 28.2200, 83.6400, 24628, "Baglung"],
+  ["Puchaudi", 29.5200, 80.5700, 38281, "Baitadi"],
+  ["Dasharathchand", 29.4700, 80.5300, 31567, "Baitadi"],
+  ["Patan", 29.3300, 80.9500, 29230, "Baitadi"],
+  ["Melauli", 29.5500, 80.6300, 20658, "Baitadi"],
+  ["Bungal", 29.5600, 81.2600, 33812, "Bajhang"],
+  ["Jaya Prithvi", 29.6400, 81.1800, 21933, "Bajhang"],
+  ["Budhiganga", 29.3400, 81.5600, 20185, "Bajura"],
+  ["Budhinanda", 29.4100, 81.5900, 20072, "Bajura"],
+  ["Badimalika", 29.2800, 81.5200, 18414, "Bajura"],
+  ["Tribeni", 29.2100, 81.6200, 17798, "Bajura"],
+  ["Kohalpur", 28.1500, 81.7000, 101667, "Banke"],
+  ["Mahagadhimai", 27.0200, 85.2800, 59424, "Bara"],
+  ["Simraungadh", 27.1600, 85.0200, 54878, "Bara"],
+  ["Kolhabi", 27.0600, 85.1200, 51182, "Bara"],
+  ["Pacharauta", 27.1100, 84.9800, 40524, "Bara"],
+  ["Nijgadh", 27.0000, 85.1000, 37687, "Bara"],
+  ["Gulariya", 28.0300, 81.2900, 74505, "Bardiya"],
+  ["Barbardiya", 28.1000, 81.4000, 72533, "Bardiya"],
+  ["Bansgadhi", 28.1600, 81.4700, 63252, "Bardiya"],
+  ["Rajapur", 28.2200, 81.5200, 60831, "Bardiya"],
+  ["Madhuwan", 28.0500, 81.5500, 50739, "Bardiya"],
+  ["Thakurbaba", 28.0900, 81.3500, 49420, "Bardiya"],
+  ["Suryabinayak", 27.6700, 85.4300, 140085, "Bhaktapur"],
+  ["Madhyapur Thimi", 27.6800, 85.3900, 119756, "Bhaktapur"],
+  ["Changunarayan", 27.7300, 85.4200, 88083, "Bhaktapur"],
+  ["Bhaktapur", 27.6710, 85.4290, 79136, "Bhaktapur"],
+  ["Shadananda", 27.1700, 87.0500, 29342, "Bhojpur"],
+  ["Bhojpur", 27.1700, 87.0500, 26007, "Bhojpur"],
+  ["Ratnanagar", 27.6100, 84.4300, 89905, "Chitwan"],
+  ["Khairhani", 27.9800, 84.3700, 67385, "Chitwan"],
+  ["Rapti", 27.7500, 84.4000, 66617, "Chitwan"],
+  ["Kalika", 27.6600, 84.5500, 52164, "Chitwan"],
+  ["Madi", 27.5200, 84.4700, 38295, "Chitwan"],
+  ["Parshuram", 29.3600, 80.5700, 35590, "Dadeldhura"],
+  ["Amargadhi", 29.2700, 80.5500, 24149, "Dadeldhura"],
+  ["Dullu", 28.6600, 81.8400, 39143, "Dailekh"],
+  ["Aathabis", 28.7700, 81.7500, 31092, "Dailekh"],
+  ["Chamunda Bindrasaini", 28.7000, 81.7800, 26559, "Dailekh"],
+  ["Narayan", 28.6200, 81.8200, 26111, "Dailekh"],
+  ["Lamahi", 27.9900, 82.4800, 59050, "Dang"],
+  ["Mahakali", 29.8500, 80.5500, 24081, "Darchula"],
+  ["Shailyashikhar", 29.7500, 80.5800, 21807, "Darchula"],
+  ["Nilkantha", 27.9900, 84.9200, 58828, "Dhading"],
+  ["Dhunibeshi", 27.9600, 84.8800, 29149, "Dhading"],
+  ["Dhankuta", 26.9800, 87.3400, 35983, "Dhankuta"],
+  ["Mahalaxmi", 26.9300, 87.3500, 22182, "Dhankuta"],
+  ["Pakhribas", 27.0300, 87.3900, 19104, "Dhankuta"],
+  ["Mithila Bihari", 26.7200, 85.9500, 38273, "Dhanusa"],
+  ["Sabaila", 26.8800, 86.0000, 62282, "Dhanusha"],
+  ["Shahidnagar", 26.7800, 86.0700, 53812, "Dhanusha"],
+  ["Dhanushadham", 26.9000, 85.9300, 52024, "Dhanusha"],
+  ["Chhireshwarnath", 26.8200, 85.9000, 51075, "Dhanusha"],
+  ["Mithila", 26.7400, 86.0000, 48676, "Dhanusha"],
+  ["Hansapur", 26.8000, 85.9800, 44949, "Dhanusha"],
+  ["Kamala", 26.8500, 86.0500, 44597, "Dhanusha"],
+  ["Ganeshman Charanath", 26.7600, 85.9600, 44082, "Dhanusha"],
+  ["Nagarain", 26.8300, 86.0200, 38037, "Dhanusha"],
+  ["Bideha", 26.9200, 85.9700, 37697, "Dhanusha"],
+  ["Bhimeshwar", 27.6700, 86.0800, 34712, "Dolakha"],
+  ["Jiri", 27.6300, 86.2300, 16109, "Dolakha"],
+  ["Tripura Sundari", 29.1000, 82.7900, 12233, "Dolpa"],
+  ["Thuli Bheri", 29.0500, 82.8500, 9861, "Dolpa"],
+  ["Dipayal Silgadhi", 29.2600, 81.0300, 33968, "Doti"],
+  ["Shikhar", 29.1900, 80.9600, 30399, "Doti"],
+  ["Gorkha", 28.0000, 84.6300, 52468, "Gorkha"],
+  ["Palungtar", 28.0700, 84.6500, 37409, "Gorkha"],
+  ["Resunga", 28.0700, 83.6200, 31551, "Gulmi"],
+  ["Musikot", 28.0900, 83.5700, 28454, "Gulmi"],
+  ["Suryodaya", 26.9000, 87.9200, 54727, "Ilam"],
+  ["Ilam", 26.9100, 87.9200, 50085, "Ilam"],
+  ["Deumai", 26.8700, 87.8800, 30969, "Ilam"],
+  ["Mai", 26.8900, 87.9500, 30732, "Ilam"],
+  ["Bheri", 28.6000, 82.1800, 37892, "Jajarkot"],
+  ["Chhedagad", 28.5600, 82.1500, 37877, "Jajarkot"],
+  ["Nalgad", 28.5000, 82.1200, 28922, "Jajarkot"],
+  ["Mechinagar", 26.6400, 88.0800, 133073, "Jhapa"],
+  ["Birtamod", 26.6500, 87.9900, 116192, "Jhapa"],
+  ["Damak", 26.6600, 87.6900, 107227, "Jhapa"],
+  ["Arjundhara", 26.6200, 87.9600, 84018, "Jhapa"],
+  ["Shivasatakshi", 26.6600, 87.8700, 74077, "Jhapa"],
+  ["Bhadrapur", 26.5400, 88.0900, 70913, "Jhapa"],
+  ["Gauradaha", 26.6400, 87.8300, 60451, "Jhapa"],
+  ["Kankai", 26.6200, 87.9100, 53148, "Jhapa"],
+  ["Chandannath", 29.2700, 82.1700, 21036, "Jumla"],
+  ["Godawari", 28.3600, 80.9900, 98746, "Kailali"],
+  ["Lamki Chuha", 28.5400, 81.2700, 90971, "Kailali"],
+  ["Tikapur", 28.5200, 81.1300, 89835, "Kailali"],
+  ["Ghodaghodi", 28.4600, 81.0700, 86034, "Kailali"],
+  ["Gauriganga", 28.3900, 80.8900, 64558, "Kailali"],
+  ["Bhajani", 28.5000, 81.0000, 53494, "Kailali"],
+  ["Khandachakra", 29.1400, 81.7200, 22274, "Kalikot"],
+  ["Raskot", 29.2200, 81.8500, 17425, "Kalikot"],
+  ["Tilagupha", 29.0900, 81.6800, 16197, "Kalikot"],
+  ["Bhimdatta", 28.9800, 80.1900, 122320, "Kanchanpur"],
+  ["Krishnapur", 28.8500, 80.2800, 71500, "Kanchanpur"],
+  ["Punarbas", 28.8800, 80.4400, 61748, "Kanchanpur"],
+  ["Bedkot", 28.9900, 80.4700, 57680, "Kanchanpur"],
+  ["Shuklaphanta", 28.8300, 80.1300, 53969, "Kanchanpur"],
+  ["Belauri", 28.8800, 80.3300, 53910, "Kanchanpur"],
+  ["Dodhara Chandani", 28.8600, 80.0800, 42974, "Kanchanpur"],
+  ["Banganga", 27.6800, 83.0500, 96714, "Kapilvastu"],
+  ["Kapilvastu", 27.5700, 83.0600, 88874, "Kapilvastu"],
+  ["Shivaraj", 27.6200, 83.1100, 84810, "Kapilvastu"],
+  ["Buddhabhumi", 27.5400, 83.0800, 76507, "Kapilvastu"],
+  ["Krishnanagar", 27.5900, 83.1700, 70111, "Kapilvastu"],
+  ["Maharajganj", 27.6500, 83.0300, 64645, "Kapilvastu"],
+  ["Budhanilkantha", 27.7800, 85.3600, 177557, "Kathmandu"],
+  ["Tarakeshwar", 27.6800, 85.2500, 151479, "Kathmandu"],
+  ["Gokarneshwar", 27.7500, 85.4000, 149366, "Kathmandu"],
+  ["Chandragiri", 27.6400, 85.2200, 136860, "Kathmandu"],
+  ["Tokha", 27.7700, 85.3400, 133755, "Kathmandu"],
+  ["Kageshwari-Manohara", 27.7300, 85.3700, 130433, "Kathmandu"],
+  ["Nagarjun", 27.7300, 85.2800, 115437, "Kathmandu"],
+  ["Kirtipur", 27.6600, 85.2700, 81578, "Kathmandu"],
+  ["Shankharapur", 27.7900, 85.4700, 29318, "Kathmandu"],
+  ["Dakshinkali", 27.5900, 85.2300, 26372, "Kathmandu"],
+  ["Banepa", 27.6300, 85.5200, 67690, "Kavrepalanchok"],
+  ["Paunauti", 27.5400, 85.6700, 51504, "Kavrepalanchok"],
+  ["Panchkhal", 27.6500, 85.6200, 35521, "Kavrepalanchok"],
+  ["Dhulikhel", 27.6200, 85.5600, 33726, "Kavrepalanchok"],
+  ["Mandan Deupur", 27.6000, 85.4800, 30381, "Kavrepalanchok"],
+  ["Namobuddha", 27.5900, 85.5000, 26160, "Kavrepalanchok"],
+  ["Diktel Rupakot Majhuwagadhi", 27.2200, 86.7900, 43008, "Khotang"],
+  ["Halesi Tuwachung", 27.3000, 86.6300, 27078, "Khotang"],
+  ["Mahalaxmi", 27.6100, 85.3300, 123116, "Lalitpur"],
+  ["Godawari", 27.5800, 85.4000, 97633, "Lalitpur"],
+  ["Besisahar", 28.2300, 84.3700, 38232, "Lamjung"],
+  ["Sundarbazar", 28.1600, 84.4100, 27043, "Lamjung"],
+  ["Madhya Nepal", 28.1100, 84.5000, 21971, "Lamjung"],
+  ["Rainas", 28.1800, 84.3500, 17402, "Lamjung"],
+  ["Bardibas", 26.9900, 85.9100, 74361, "Mahottari"],
+  ["Gaushala", 26.8700, 85.8000, 72481, "Mahottari"],
+  ["Jaleshwar", 26.6600, 85.7900, 63802, "Mahottari"],
+  ["Bhangaha", 26.7200, 85.8600, 55354, "Mahottari"],
+  ["Manara Shiswa", 26.8000, 85.7500, 52191, "Mahottari"],
+  ["Balawa", 26.7600, 85.8200, 49473, "Mahottari"],
+  ["Loharpatti", 26.7400, 85.8800, 45773, "Mahottari"],
+  ["Aurahi", 26.9200, 85.8400, 37361, "Mahottari"],
+  ["Ramgopalpur", 26.9400, 85.8700, 36201, "Mahottari"],
+  ["Matihani", 26.8500, 85.8300, 36136, "Mahottari"],
+  ["Thaha", 27.4300, 85.0800, 38870, "Makawanpur"],
+  ["Sundar Haraincha", 26.5800, 87.2700, 121305, "Morang"],
+  ["Belbari", 26.6700, 87.1600, 81771, "Morang"],
+  ["Pathari Shanischare", 26.6600, 87.2300, 72451, "Morang"],
+  ["Urlabari", 26.7200, 87.1700, 70908, "Morang"],
+  ["Ratuwamai", 26.7100, 87.3000, 61139, "Morang"],
+  ["Rangeli", 26.6800, 87.2700, 57494, "Morang"],
+  ["Sunawarshi", 26.6300, 87.1900, 56034, "Morang"],
+  ["Letang", 26.7000, 87.3900, 38152, "Morang"],
+  ["Chhayanath Rara", 29.5300, 82.0800, 24527, "Mugu"],
+  ["Beni", 28.3600, 83.5800, 32697, "Myagdi"],
+  ["Bardaghat", 27.7800, 83.5300, 76703, "Nawalparasi West"],
+  ["Kawasoti", 27.8400, 84.1200, 86821, "Nawalpur"],
+  ["Gaindakot", 27.8200, 84.2000, 79349, "Nawalpur"],
+  ["Madhyabindu", 27.7900, 84.0500, 61091, "Nawalpur"],
+  ["Devchuli", 27.7400, 84.1700, 58003, "Nawalpur"],
+  ["Bidur", 27.9800, 85.1500, 59227, "Nuwakot"],
+  ["Belkotgadhi", 27.8700, 85.2200, 35224, "Nuwakot"],
+  ["Siddhicharan", 27.3100, 86.5000, 27351, "Okhaldhunga"],
+  ["Tansen", 27.8700, 83.5500, 50792, "Palpa"],
+  ["Rampur", 27.9200, 83.6000, 40883, "Palpa"],
+  ["Phidim", 27.1500, 87.7500, 48495, "Pancthar"],
+  ["Sunawal", 27.7000, 83.7200, 72085, "Parasi"],
+  ["Ramgram", 27.6500, 83.6800, 64017, "Parasi"],
+  ["Kushma", 28.2300, 83.6800, 38101, "Parbat"],
+  ["Phalebas", 28.1900, 83.7200, 20468, "Parbat"],
+  ["Bahudarmai", 27.0400, 84.8100, 43478, "Parsa"],
+  ["Parsagadhi", 27.1100, 84.8800, 41569, "Parsa"],
+  ["Pokhariya", 27.0600, 84.8500, 37675, "Parsa"],
+  ["Pyuthan", 28.1000, 82.8600, 42130, "Pyuthan"],
+  ["Swargadwari", 28.0500, 82.8200, 32037, "Pyuthan"],
+  ["Manthali", 27.4000, 86.0600, 39695, "Ramechhap"],
+  ["Ramechhap", 27.3300, 86.0900, 24971, "Ramechhap"],
+  ["Chandrapur", 27.0600, 85.4200, 81807, "Rautahat"],
+  ["Garuda", 27.0500, 85.4700, 60857, "Rautahat"],
+  ["Rajpur", 27.0100, 85.3800, 54083, "Rautahat"],
+  ["Gujara", 27.0900, 85.3500, 54033, "Rautahat"],
+  ["Ishnath", 27.1100, 85.4000, 51855, "Rautahat"],
+  ["Brindaban", 27.0700, 85.3200, 49742, "Rautahat"],
+  ["Gadhimai", 27.0000, 85.4900, 49135, "Rautahat"],
+  ["Katahariya", 27.0800, 85.5000, 45821, "Rautahat"],
+  ["Paroha", 27.0300, 85.4600, 45702, "Rautahat"],
+  ["Phatuwa Bijayapur", 27.0600, 85.3600, 42218, "Rautahat"],
+  ["Madhav Narayan", 27.0200, 85.3300, 40894, "Rautahat"],
+  ["Gaur", 26.7700, 85.2800, 39846, "Rautahat"],
+  ["Boudhimai", 27.0400, 85.4400, 39325, "Rautahat"],
+  ["Dewahi Gonahi", 27.0900, 85.2900, 38690, "Rautahat"],
+  ["Rajdevi", 27.0000, 85.5200, 35658, "Rautahat"],
+  ["Maulapur", 26.9800, 85.3000, 32325, "Rautahat"],
+  ["Rolpa", 28.2700, 82.6400, 35376, "Rolpa"],
+  ["Aathabiskot", 28.5400, 82.5800, 35917, "Rukum West"],
+  ["Tilottama", 27.6400, 83.4800, 149479, "Rupandehi"],
+  ["Lumbini Sanskritik", 27.5200, 83.3600, 87383, "Rupandehi"],
+  ["Sainamaina", 27.6100, 83.5300, 78393, "Rupandehi"],
+  ["Siddharthanagar", 27.5000, 83.4500, 74436, "Rupandehi"],
+  ["Devdaha", 27.5500, 83.2800, 72457, "Rupandehi"],
+  ["Sharada", 28.3700, 82.1600, 34663, "Salyan"],
+  ["Bagchaur", 28.3300, 82.0900, 34021, "Salyan"],
+  ["Bangad Kupinde", 28.4200, 82.2000, 32940, "Salyan"],
+  ["Khandbari", 27.3700, 87.2000, 35565, "Sankhuwasabha"],
+  ["Chainpur", 27.3000, 87.3200, 26799, "Sankhuwasabha"],
+  ["Panchkhapan", 27.3500, 87.1500, 16348, "Sankhuwasabha"],
+  ["Dharmadevi", 27.4000, 87.2500, 16053, "Sankhuwasabha"],
+  ["Madi", 27.2800, 87.1900, 13273, "Sankhuwasabha"],
+  ["Rajbiraj", 26.5400, 86.7400, 70803, "Saptari"],
+  ["Kanchanrup", 26.6500, 86.8700, 58466, "Saptari"],
+  ["Hanumannagar Kankalini", 26.5700, 86.9700, 52796, "Saptari"],
+  ["Khadak", 26.6200, 86.7800, 52778, "Saptari"],
+  ["Surunga", 26.6800, 86.8000, 49460, "Saptari"],
+  ["Dakneshwari", 26.5900, 86.8200, 47739, "Saptari"],
+  ["Bodebarsain", 26.6300, 86.8500, 46017, "Saptari"],
+  ["Shambhunath", 26.5600, 86.7100, 39634, "Saptari"],
+  ["Saptakoshi", 26.5000, 86.7800, 23510, "Saptari"],
+  ["Barahathawa", 26.8700, 85.7300, 81120, "Sarlahi"],
+  ["Ishwarpur", 26.9500, 85.5700, 68377, "Sarlahi"],
+  ["Lalbandi", 27.1600, 85.6000, 66419, "Sarlahi"],
+  ["Malangwa", 26.8600, 85.5600, 54550, "Sarlahi"],
+  ["Godaita", 26.9200, 85.6400, 54270, "Sarlahi"],
+  ["Hariwan", 27.0600, 85.6500, 49988, "Sarlahi"],
+  ["Balara", 26.9800, 85.5900, 47912, "Sarlahi"],
+  ["Bagmati", 27.0000, 85.6200, 47106, "Sarlahi"],
+  ["Kabilasi", 26.9400, 85.5100, 44204, "Sarlahi"],
+  ["Haripur", 27.0200, 85.5400, 43233, "Sarlahi"],
+  ["Haripurwa", 26.9600, 85.6700, 38714, "Sarlahi"],
+  ["Kamalamai", 27.2800, 85.9700, 71016, "Sindhuli"],
+  ["Dudhauli", 27.2100, 85.8800, 70207, "Sindhuli"],
+  ["Chautara Sangachokgadhi", 27.8000, 85.7200, 42668, "Sindhupalchok"],
+  ["Melamchi", 27.8400, 85.5500, 41063, "Sindhupalchok"],
+  ["Barhabise", 27.7900, 85.8900, 24109, "Sindhupalchok"],
+  ["Lahan", 26.7200, 86.4800, 102031, "Siraha"],
+  ["Siraha", 26.6500, 86.2000, 95410, "Siraha"],
+  ["Golbazar", 26.7000, 86.3200, 63885, "Siraha"],
+  ["Mirchaiya", 26.6600, 86.3800, 59425, "Siraha"],
+  ["Kalyanpur", 26.7100, 86.2900, 58872, "Siraha"],
+  ["Dhangadimai", 26.7400, 86.4000, 53355, "Siraha"],
+  ["Sukhipur", 26.7600, 86.5100, 42033, "Siraha"],
+  ["Karjanha", 26.6300, 86.3500, 38557, "Siraha"],
+  ["Solu Dudhkunda", 27.5400, 86.7100, 25678, "Solukhumbu"],
+  ["Barahachhetra", 26.6200, 87.1600, 91087, "Sunsari"],
+  ["Inaruwa", 26.5900, 87.1500, 74914, "Sunsari"],
+  ["Duhabi", 26.6500, 87.0800, 66074, "Sunsari"],
+  ["Ramdhuni", 26.6700, 87.0300, 63452, "Sunsari"],
+  ["Birendranagar", 28.6000, 81.6200, 154886, "Surkhet"],
+  ["Gurbhakot", 28.4700, 81.6900, 48216, "Surkhet"],
+  ["Bheriganga", 28.5500, 81.7300, 48203, "Surkhet"],
+  ["Panchapuri", 28.5800, 81.6000, 35839, "Surkhet"],
+  ["Lekbeshi", 28.5200, 81.5500, 31710, "Surkhet"],
+  ["Waling", 27.9900, 83.7800, 50488, "Syangja"],
+  ["Putalibazar", 28.1000, 83.8500, 41743, "Syangja"],
+  ["Galyang", 28.0700, 83.8800, 31034, "Syangja"],
+  ["Chapakot", 28.0300, 83.9200, 22969, "Syangja"],
+  ["Bhirkot", 28.1300, 83.9600, 22645, "Syangja"],
+  ["Vyas", 28.2600, 84.2900, 78939, "Tanahun"],
+  ["Shuklagandaki", 28.1600, 84.1700, 55620, "Tanahun"],
+  ["Bhanu", 28.1200, 84.2300, 42794, "Tanahun"],
+  ["Bhimad", 28.2000, 84.3500, 29248, "Tanahun"],
+  ["Phungling", 27.3500, 87.6600, 28449, "Taplejung"],
+  ["Myanglung", 27.1100, 87.5500, 18750, "Terathum"],
+  ["Laligurans", 27.0600, 87.6200, 15329, "Terathum"],
+  ["Triyuga", 26.9600, 86.7600, 102725, "Udayapur"],
+  ["Katari", 26.8800, 86.6200, 59507, "Udayapur"],
+  ["Chaudandigadhi", 26.9200, 86.6700, 53631, "Udayapur"],
+  ["Belaka", 26.9000, 86.6900, 51043, "Udayapur"],
+  ["Musikot", 28.5000, 82.5500, 34270, "Western Rukum"],
+  ["Chaurjahari", 28.5500, 82.6200, 28956, "Western Rukum"],
+
+        ];
+        const MUNI_DATA = MUNI_RAW.filter(r => !metroNames.has(r[0])).map(r => ({
+            n: r[0],
+            c: [r[1], r[2]],
+            pop: r[3],
+            district: r[4],
+            desc: `This municipality is located in the ${r[4]} district. It serves as a local administrative and commercial center, with markets, schools, and healthcare facilities. The town is experiencing gradual urban growth, reflecting Nepal's ongoing development. With a population of approximately ${r[3].toLocaleString()}, it is a vibrant community.`
+        }));
+
+        // 3. Tourism
+        const TOURISM_DATA = [
+            { n: 'Namche Bazar', c: [27.8069, 86.7139],
+                desc: 'Namche Bazar is the gateway to Everest, nestled at an altitude of 3,440m. It is the primary hub for trekkers and mountaineers, offering lodges, restaurants, and equipment shops. The town is also a center of Sherpa culture, with monasteries and traditional festivals. Its stunning mountain views and vibrant market make it a must-visit destination. Visitors can enjoy panoramic views of Everest, Lhotse, and Ama Dablam from the nearby viewpoints.' },
+            { n: 'Jomsom', c: [28.7803, 83.7230],
+                desc: 'Jomsom is a picturesque town in the Mustang district, lying along the Kali Gandaki River. It is a popular stop on the Annapurna Circuit and is known for its apple orchards and cider. The town offers breathtaking views of Dhaulagiri and Nilgiri peaks. With its ancient monasteries and caves, Jomsom provides a glimpse into the region\'s Tibetan Buddhist heritage. The daily flight from Pokhara makes it easily accessible for trekkers.' },
+            { n: 'Manang', c: [28.6667, 84.0000],
+                desc: 'Manang is a high‑altitude village on the Annapurna Circuit, situated at 3,540m. It is a cultural hub for the local Gurung and Tibetan communities, with ancient monasteries and mani walls. The village is known for its apple orchards, and the surrounding landscapes offer spectacular views of the Annapurna massif. Trekkers often acclimatize here before crossing the Thorong La pass. The local museum and traditional homes provide insight into the region\'s unique way of life.' },
+            { n: 'Ghandruk', c: [28.3833, 83.8000],
+                desc: 'Ghandruk is a beautiful Gurung village with panoramic views of Annapurna South, Hiunchuli, and Machapuchare. It is a popular trekking destination, offering homestays and cultural experiences. The village has a museum showcasing Gurung culture, and its terraced fields and traditional stone houses add to its charm. Visitors can also explore the nearby forests and waterfalls. The village is a great place to experience local hospitality and mountain life.' },
+            { n: 'Bandipur', c: [27.9333, 84.4167],
+                desc: 'Bandipur is a hilltop Newari town with stunning mountain vistas and well‑preserved architecture. It is a tranquil getaway from the bustle of cities, offering views of the Himalayas from Dhaulagiri to Ganesh Himal. The town has a rich cultural heritage, with temples and traditional houses lining its cobblestone streets. It is also a base for hiking and exploring the surrounding hills. Bandipur\'s serene atmosphere and friendly locals make it a hidden gem.' },
+            { n: 'Tansen', c: [27.8667, 83.5500],
+                desc: 'Tansen is a historic hill town in the Palpa district, known for its cultural heritage and panoramic mountain views. It was once the capital of the Palpa kingdom and retains many traditional Newar and Magar buildings. The town\'s viewpoints offer stunning vistas of the Dhaulagiri and Annapurna ranges. Visitors can explore the ancient temples and the Ranighat Palace nearby. Tansen is also famous for its dhaka cloth and handicrafts.' },
+            { n: 'Daman', c: [27.6000, 85.0833],
+                desc: 'Daman is a small village located on a ridge offering the closest view of the Himalayan range from Kathmandu. It is famous for its sunrise and sunset views over the snow‑capped peaks, including Everest, Annapurna, and Manaslu. The village has a historic tower built by the Nepal government for viewing. It is a peaceful retreat with basic accommodation and a few restaurants. The drive from Kathmandu passes through scenic countryside, making it a pleasant day trip.' },
+            { n: 'Nagarkot', c: [27.7167, 85.5167],
+                desc: 'Nagarkot is a renowned viewpoint at 2,175m, offering spectacular sunrise views over the Himalayas. On clear days, visitors can see a wide arc of peaks from Dhaulagiri to Kanchenjunga. The area is dotted with resorts and hotels, making it a popular weekend escape from Kathmandu. The village also has hiking trails through pine forests and terraced fields. Nagarkot\'s tranquility and fresh mountain air attract both tourists and locals.' },
+            { n: 'Dhulikhel', c: [27.6167, 85.5500],
+                desc: 'Dhulikhel is a charming Newari town with ancient temples and Himalayan views. It is located on the Araniko Highway, about 30 km from Kathmandu. The town is known for its traditional architecture and the Namobuddha Stupa nearby. Visitors can enjoy panoramic views of the Himalayas from the town\'s viewpoints. Dhulikhel also offers hiking trails to the surrounding hills and villages. Its cultural richness and scenic beauty make it a favorite day trip.' },
+            { n: 'Panauti', c: [27.5845, 85.5148],
+                desc: 'Panauti is a medieval Newari town at the confluence of the Roshi and Punyamati rivers. It has a rich history and well‑preserved temples, rest houses, and courtyards. The Indreshwar Temple, dating to 1294, is a major attraction. The town is a tentative UNESCO World Heritage Site and offers a serene retreat into Nepal\'s medieval heritage. Visitors can enjoy the sacred river confluences and the annual Makar Mela festival.' },
+            { n: 'Gorkha', c: [28.0044, 84.6289],
+                desc: 'Gorkha is a historic town, the birthplace of King Prithvi Narayan Shah, who unified Nepal. It is famous for the Gorkha Palace, a hilltop fortress with a temple dedicated to Gorakh Nath. The palace offers panoramic views of the surrounding hills. The town is also known for its brave Gorkha soldiers and their military traditions. Visitors can explore the palace, museum, and nearby viewpoints.' },
+            { n: 'Kakani', c: [27.8000, 85.2667],
+                desc: 'Kakani is a scenic hill station near Kathmandu, known for its forests and views of the Himalayas. It is a popular spot for picnics and short hikes, with a British-era tower offering 360‑degree views. The area is rich in wildlife and is home to Shivapuri National Park. Kakani\'s cool climate and greenery make it a refreshing escape from the city. It is a favorite destination for nature lovers and birdwatchers.' },
+            { n: 'Syangja', c: [28.0667, 83.8333],
+                desc: 'Syangja is a picturesque district town with rice terraces and a pleasant climate. It is a regional center for agriculture and trade, with a bustling market. The town offers views of the Himalayas on clear days. Nearby attractions include the Gorkha Palace and the Devi\'s Falls. Syangja is a good base for exploring the surrounding hills and villages.' },
+        ];
+
+        // 4. Airports
+        const AIRPORT_DATA = [
+            { n: 'Tribhuvan Intl (KTM)', c: [27.6964, 85.3592], passengers: 9000,
+                desc: 'Tribhuvan International Airport is Nepal\'s sole international airport, located in Kathmandu. It handles over 7 million passengers annually, connecting Nepal to major cities in Asia and beyond. The airport is a crucial gateway for tourists and business travelers, with ongoing upgrades to improve capacity and services. It serves as the main hub for domestic flights to all corners of the country. The airport is named after King Tribhuvan and has a significant role in Nepal\'s aviation history.' },
+            { n: 'Pokhara Intl (PKR)', c: [28.2009, 83.9816], passengers: 1000,
+                desc: 'Pokhara International Airport is Nepal\'s second international airport, opened in 2023. It is located near the famous Phewa Lake and serves as the main gateway to the Annapurna region. The airport has modern facilities and a 2,500m runway, capable of handling large aircraft. It is expected to boost tourism and trade in western Nepal. The airport offers stunning views of the Himalayas on approach.' },
+            { n: 'Gautam Buddha (BWA)', c: [27.5058, 83.4163], passengers: 600,
+                desc: 'Gautam Buddha Airport is an international airport serving Lumbini, the birthplace of Buddha. It is located in Bhairahawa and handles flights from India and other regional destinations. The airport is a key pilgrimage gateway, with increasing traffic due to its religious significance. It has a 3,000m runway and modern terminal facilities. The airport is named after the Lord Buddha and supports the region\'s tourism and economy.' },
+            { n: 'Biratnagar (BIR)', c: [26.4815, 87.2640], passengers: 700,
+                desc: 'Biratnagar Airport is a domestic airport serving the eastern city of Biratnagar. It connects the region to Kathmandu and other major cities, supporting trade and business. The airport handles regular flights and is a hub for the eastern Terai. It is an important link for the industrial and agricultural sectors. The airport is located close to the Indian border, facilitating cross‑border travel.' },
+            { n: 'Nepalgunj (KEP)', c: [28.1036, 81.6670], passengers: 400,
+                desc: 'Nepalgunj Airport is a domestic airport in western Nepal, serving the city of Nepalgunj. It is a hub for flights to the Karnali region and the far‑west. The airport handles regular connections to Kathmandu and other cities, supporting tourism and trade. It is a gateway to Bardiya National Park and the Himalayan trekking routes. The airport has a relatively short runway, accommodating small aircraft.' },
+            { n: 'Lukla (LUA)', c: [27.6869, 86.7297], passengers: 130,
+                desc: 'Lukla Airport is the world\'s most famous mountain airport, serving as the gateway to Everest Base Camp. It is located at an altitude of 2,860m, with a short runway that requires skilled pilots. The airport is a crucial link for trekkers and mountaineers, operating daily flights from Kathmandu. The approach and landing are considered among the most thrilling in the world. The airport also serves the local Sherpa community.' },
+            { n: 'Jomsom (JMO)', c: [28.7803, 83.7230], passengers: 30,
+                desc: 'Jomsom Airport is a domestic airport in Mustang district, serving the town of Jomsom. It is a key gateway for trekkers on the Annapurna Circuit, with flights from Pokhara. The airport sits in a valley with strong winds, making operations challenging. It is a vital link for tourism and the local economy. The airport is also a base for helicopter services to remote areas.' },
+            { n: 'Dhangadhi (DHI)', c: [28.6891, 80.5973], passengers: 300,
+                desc: 'Dhangadhi Airport is a domestic airport serving far‑western Nepal\'s largest city. It connects the region to Kathmandu, supporting trade and travel. The airport is a hub for the surrounding districts and is important for agricultural exports. It has regular flights and is well‑maintained. The airport is also used for government and emergency services.' },
+            { n: 'Bharatpur (BHR)', c: [27.6812, 84.4305], passengers: 200,
+                desc: 'Bharatpur Airport is a domestic airport in Chitwan, serving the gateway to Chitwan National Park. It is a popular entry point for tourists visiting the park and the nearby cities. The airport has regular flights from Kathmandu and other destinations. It supports the growing tourism industry in the region. The airport is small but efficient, with a single runway.' },
+            { n: 'Janakpur (JKR)', c: [26.7288, 85.9237], passengers: 110,
+                desc: 'Janakpur Airport is a domestic airport in the religious city of Janakpur. It serves the Mithila region and connects to Kathmandu and other cities. The airport is important for pilgrims and tourists visiting the Janaki Temple. It has regular flights and is a key transport hub for the area. The airport also handles cargo and government flights.' },
+            { n: 'Simara (SIF)', c: [27.1333, 85.0667], passengers: 50,
+                desc: 'Simara Airport is a domestic airport in Bara district, near Birgunj. It serves the industrial and trade centers of the region, providing access to Kathmandu. The airport is also used for military and cargo operations. It has a paved runway and handles small aircraft. The airport is strategically located for cross‑border trade.' },
+            { n: 'Tumlingtar (TMI)', c: [27.3500, 87.2000], passengers: 20,
+                desc: 'Tumlingtar Airport is a domestic airport in Sankhuwasabha district. It is a gateway to the Makalu Barun National Park and the Kanchenjunga region. The airport has regular flights from Kathmandu and is a base for trekkers. It is located in a scenic valley, offering views of the Himalayas. The airport is vital for tourism and local access.' },
+            { n: 'Bajura (BJU)', c: [29.4500, 81.3500], passengers: 10,
+                desc: 'Bajura Airport is a domestic airport in far‑western Nepal, serving the district of Bajura. It connects the remote region to Kathmandu and other cities. The airport is essential for the local economy, providing access to healthcare and education. It has a short runway and handles STOL aircraft. The airport is also used for humanitarian and government purposes.' },
+            { n: 'Dolpa (DOP)', c: [29.1667, 83.0000], passengers: 8,
+                desc: 'Dolpa Airport is a domestic airport in the remote Karnali region, serving the district of Dolpa. It is a gateway to Shey Phoksundo National Park and the high‑altitude Himalayas. The airport has limited services but is crucial for tourism and local development. It is one of the highest airports in Nepal. The airport is also used for supply and relief operations.' },
+            { n: 'Rara (RARA)', c: [29.5167, 82.0833], passengers: 5,
+                desc: 'Rara Airport is a small airport near Rara National Park, serving the park and the surrounding area. It is a gateway to Nepal\'s largest lake, Rara Lake. The airport has occasional flights and is primarily used for tourism. It is situated in a scenic location with mountain views. The airport is vital for park management and visitor access.' },
+            { n: 'Jumla (JUM)', c: [29.2833, 82.1833], passengers: 15,
+                desc: 'Jumla Airport is a domestic airport in the Karnali zone, serving the historic town of Jumla. It is a hub for the region and connects to Kathmandu. The airport is important for trade, health, and education services. It has regular flights and is a base for trekkers visiting the Sinja Valley and Rara Lake. The airport is also used for government operations.' },
+            { n: 'Surkhet (SKH)', c: [28.6000, 81.6333], passengers: 60,
+                desc: 'Surkhet Airport, also known as Birendranagar Airport, serves the capital of Karnali Province. It connects the region to Kathmandu and other cities, supporting trade and tourism. The airport is a major hub for the mid‑western region. It has a paved runway and handles regular flights. The airport is named after King Birendra.' },
+            { n: 'Darchula (DAP)', c: [29.8333, 80.5333], passengers: 3,
+                desc: 'Darchula Airport is a small domestic airport in far‑western Nepal, serving the district of Darchula. It connects the remote area to the rest of the country, providing essential access. The airport is used for cargo, relief, and passenger services. It has a short runway and is surrounded by mountains. The airport is vital for the local community.' },
+        ];
+
+        // 5. Heritage
+        const HERITAGE_DATA = [
+            { n: 'Kathmandu Durbar Square', c: [27.7044, 85.3073],
+                desc: 'Kathmandu Durbar Square is the historic royal palace complex of the Malla and Shah kings, located in the heart of the capital. The square is a UNESCO World Heritage Site (1979) renowned for its exquisite Newar architecture, including the Hanuman Dhoka Palace and numerous temples. It served as the seat of Nepalese royalty for centuries and remains a focal point for cultural festivals and religious ceremonies. The 2015 earthquake caused significant damage, but restoration efforts have revived much of its former glory. Today it stands as a living museum of Nepal\'s rich architectural and spiritual heritage.' },
+            { n: 'Patan Durbar Square', c: [27.6743, 85.3247],
+                desc: 'Patan Durbar Square is a UNESCO World Heritage Site (1979) located in Lalitpur, showcasing the finest Newar craftsmanship in the Kathmandu Valley. The square features the royal palace of the Malla kings, with intricately carved wooden windows, golden gates, and a collection of temples dedicated to Hindu and Buddhist deities. It was the center of the Patan kingdom from the 16th to 18th centuries and remains a vibrant hub for artisans and devotees. The square\'s Krishna Mandir, built in 1637, is a masterpiece of stone architecture with 21 spires. Patan Durbar Square is a testament to the artistic genius and religious harmony of the Newar people.' },
+            { n: 'Bhaktapur Durbar Square', c: [27.6722, 85.4285],
+                desc: 'Bhaktapur Durbar Square is a UNESCO World Heritage Site (1979) that preserves the medieval grandeur of the former Bhaktapur kingdom. The square is dominated by the 55‑Window Palace, the Golden Gate, and the Nyatapola Temple, a five‑story pagoda that is one of the tallest in Nepal. Built between the 12th and 18th centuries, Bhaktapur was a center of Newar culture and commerce, with its pottery and woodcarving traditions still alive today. The 2015 earthquake damaged several structures, but the city\'s resilience has brought many back to life. Walking through Bhaktapur is like stepping back in time, with its narrow alleys and ancient courtyards telling stories of a glorious past.' },
+            { n: 'Swayambhunath Stupa', c: [27.7146, 85.2903],
+                desc: 'Swayambhunath Stupa, also known as the Monkey Temple, is a UNESCO World Heritage Site (1979) perched on a hilltop west of Kathmandu. The stupa is one of the oldest Buddhist shrines in Nepal, with its origins dating back to the 5th century CE, though legend claims it was miraculously created from a lotus. Its iconic white dome and golden spire are visible from miles away, and the all‑seeing eyes of the Buddha gaze in four directions. The site is sacred to both Buddhists and Hindus, who circumambulate the stupa while spinning prayer wheels. Swayambhunath offers panoramic views of the Kathmandu Valley and is a powerful symbol of Nepal\'s spiritual unity.' },
+            { n: 'Boudhanath Stupa', c: [27.7216, 85.3628],
+                desc: 'Boudhanath Stupa is a UNESCO World Heritage Site (1979) and one of the largest spherical stupas in the world, located in the northeastern part of Kathmandu. The stupa was built around the 6th century CE and became a major pilgrimage site for Tibetan Buddhists after the 1959 Tibetan exodus. Its massive mandala‑like structure, topped with a golden spire and the eyes of the Buddha, represents the path to enlightenment. The surrounding gompas, monasteries, and prayer flag‑filled courtyards create a serene and deeply spiritual atmosphere. Boudhanath is the heart of Tibetan Buddhist culture in Nepal and a place of profound devotion and peace.' },
+            { n: 'Pashupatinath Temple', c: [27.7103, 85.3482],
+                desc: 'Pashupatinath Temple is a UNESCO World Heritage Site (1979) and the most sacred Hindu temple in Nepal, dedicated to Lord Shiva as Pashupati, the lord of all beings. Located on the banks of the Bagmati River in Kathmandu, the temple complex dates back to the 5th century CE, with the current pagoda‑style structure built in the 17th century. Only Hindus are allowed inside the inner sanctum, but the open grounds and cremation ghats along the river are open to all visitors. The temple is a major pilgrimage destination during the Maha Shivaratri festival, drawing hundreds of thousands of devotees. Pashupatinath embodies the deep spiritual traditions and rituals of Nepalese Hinduism.' },
+            { n: 'Changu Narayan Temple', c: [27.7162, 85.4271],
+                desc: 'Changu Narayan Temple is a UNESCO World Heritage Site (1979) and is considered the oldest Hindu temple in Nepal, dating back to the 4th century CE. Located on a hilltop east of Kathmandu, the temple is dedicated to Lord Vishnu and features exquisite stone carvings and inscriptions from the Licchavi period. The temple\'s two‑story pagoda structure is surrounded by ancient sculptures depicting Vishnu\'s ten incarnations, including the famous Garuda statue. The site offers sweeping views of the Kathmandu Valley and has been a place of continuous worship for over 1,600 years. Changu Narayan is a remarkable window into Nepal\'s early temple architecture and devotional history.' },
+            { n: 'Lumbini', c: [27.4692, 83.2751],
+                desc: 'Lumbini is a UNESCO World Heritage Site (1997) and the sacred birthplace of Lord Buddha, located in the Rupandehi district of Nepal. The site contains the Maya Devi Temple, which marks the exact spot where Queen Maya Devi gave birth to Siddhartha Gautama around 563 BCE. The Ashoka Pillar, erected by Emperor Ashoka in 249 BCE, bears inscriptions confirming Lumbini as the Buddha\'s birthplace. The sacred garden is surrounded by ancient monasteries, stupas, and the peaceful Puskarini pond where the Buddha took his first bath. Lumbini is a global pilgrimage destination and a symbol of peace, compassion, and the Buddhist tradition.' },
+            { n: 'Lo Manthang', c: [29.1831, 83.9567],
+                desc: 'Lo Manthang is a 15th‑century walled city located in the Mustang district, founded around 1440 CE as the capital of the Kingdom of Lo. The city is surrounded by imposing mud‑brick walls and contains the royal palace, several monasteries, and traditional Tibetan‑style houses. It was the center of the Mustang kingdom for centuries, controlling trade routes between Tibet and the Indian subcontinent. The city\'s Buddhist heritage is preserved in its monasteries, including the Thubchen Gompa and Jampa Gompa, which house exquisite murals and statues. Lo Manthang is now a tentative UNESCO World Heritage Site and a living testament to the rich cultural heritage of the Himalayan region.' },
+            { n: 'Kirtipur', c: [27.6781, 85.2769],
+                desc: 'Kirtipur is an ancient Newar settlement on a hilltop south of Kathmandu, with a history dating back to the 7th century CE. The town was a fortified stronghold that resisted Gorkha conquest until 1768, when Prithvi Narayan Shah finally captured it after a long siege. Kirtipur is renowned for its traditional Newar architecture, narrow alleys, and the prominent Chilancho Stupa and Uma Maheshwar Temple. The town\'s unique culture is preserved in its festivals, handicrafts, and the distinctive Newar brick houses that line its streets. Kirtipur is a tentative UNESCO World Heritage Site and offers a glimpse into Kathmandu Valley\'s pre‑unification history.' },
+            { n: 'Tansen', c: [27.8667, 83.5500],
+                desc: 'Tansen is a historic hill town in the Palpa district, serving as the capital of the Palpa kingdom from the 16th to 18th centuries. The town is perched at an elevation of 1,350 meters, offering stunning views of the Himalayan range, including Dhaulagiri and Annapurna. Tansen is known for its well‑preserved Newar and Magar architecture, with ornate temples, palaces, and traditional stone‑paved streets. The Ranighat Palace, built in 1893 on the banks of the Kali Gandaki River, is a nearby highlight. Tansen is a tentative UNESCO World Heritage Site and a cultural treasure of western Nepal.' },
+            { n: 'Panauti', c: [27.5845, 85.5148],
+                desc: 'Panauti is a medieval Newari town located at the confluence of the Roshi and Punyamati rivers in Kavrepalanchok district. The town flourished between the 13th and 15th centuries as an important trading post and religious center, with its Indreshwar Temple dating back to 1294 CE. Panauti is renowned for its tri‑river confluence, which is considered sacred, and its beautifully preserved temples, rest houses, and courtyards. The town\'s traditional Newar architecture and cultural festivals, such as the Makar Mela, attract visitors and scholars alike. Panauti is a tentative UNESCO World Heritage Site and a serene retreat into Nepal\'s medieval heritage.' },
+            { n: 'Gorkha Palace', c: [28.0044, 84.6289],
+                desc: 'Gorkha Palace is a 16th‑century fortress and royal residence located on a hilltop in the Gorkha district, expanded over the 17th and 18th centuries. It was the birthplace of King Prithvi Narayan Shah, the unifier of Nepal, who launched his campaign to conquer the Kathmandu Valley from this very palace. The palace complex includes the royal residence, temples dedicated to Gorakh Nath and Kali, and a watchtower offering panoramic views of the surrounding hills. The palace is a symbol of Nepalese unity and the Shah dynasty\'s rise to power. Gorkha Palace is a tentative UNESCO World Heritage Site and a site of profound historical significance.' },
+            { n: 'Ramagrama Stupa', c: [27.4978, 83.6811],
+                desc: 'Ramagrama Stupa is a 6th‑century BCE Buddhist stupa located in the Parasi district, believed to contain a relic of Lord Buddha. It is one of the eight original stupas built over the Buddha\'s relics, and it is the only one that remains intact and untouched. The stupa is a simple earthen mound surrounded by a peaceful forest, attracting pilgrims and meditators from around the world. Excavations have revealed ancient bricks and artifacts, confirming its early date and significance in Buddhist history. Ramagrama Stupa is a tentative UNESCO World Heritage Site and a sacred site of immense spiritual value.' },
+            { n: 'Kakrebihar', c: [28.5687, 81.6184],
+                desc: 'Kakrebihar is a 12th‑century Buddhist temple complex located in the Surkhet valley, featuring a unique blend of Buddhist and Hindu architectural elements. The main stupa is built in the shape of a mandala, with four entrances and a central shrine that once housed a bronze Buddha statue. The site was an important monastic center during the Karnali kingdom period and reflects the cultural synthesis of the time. Kakrebihar\'s carved stone pillars, lotus motifs, and intricate brickwork are notable examples of medieval Nepalese craftsmanship. The site is now a protected archaeological monument and a window into the region\'s Buddhist heritage.' },
+            { n: 'Simraungadh', c: [26.8894, 85.1169],
+                desc: 'Simraungadh is a fortified city that served as the capital of the Tirhut Kingdom from the 11th to the 14th centuries, located in present‑day Bara district. The city was surrounded by massive earthen ramparts and moats, with a royal palace, temples, and bustling markets within its walls. It was a major center of power and culture in the Mithila region, patronizing art, literature, and religious traditions. The site contains the ruins of the royal palace, the Bairiya Math temple, and numerous other structures that speak to its former grandeur. Simraungadh is a tentative UNESCO World Heritage Site and a reminder of Nepal\'s medieval kingdoms.' },
+            { n: 'Namo Buddha', c: [27.5711, 85.5825],
+                desc: 'Namo Buddha is a legendary Buddhist site located in the Kavrepalanchok district, believed to be the place where the Buddha, in a previous life, sacrificed his body to feed a starving tigress and her cubs. The site features a large stupa, a monastery, and a statue of the Buddha, set against the backdrop of the Himalayas. The Thrangu Tashi Yangtse Monastery, established in 1976, is a center for Buddhist learning and meditation, attracting monks and pilgrims from around the world. The site\'s name, "Namo Buddha," translates to "homage to the Buddha," reflecting its deep spiritual significance. Namo Buddha is a sacred pilgrimage destination and a place of profound compassion and devotion.' },
+            { n: 'Rani Mahal', c: [27.9264, 83.5281],
+                desc: 'Rani Mahal, also known as Ranighat Palace, is a 19th‑century palace built in 1893 on the banks of the Kali Gandaki River in Palpa district. It was constructed by General Khadga Shumsher Rana in memory of his beloved wife, Tej Kumari Devi, and is often called the "Taj Mahal of Nepal" for its romantic origin. The palace combines Mughal and European architectural influences, with ornate balconies, archways, and a stunning riverside setting. It served as a summer retreat for the Rana family and later fell into disrepair, but recent restoration efforts have revived its beauty. Rani Mahal is a cultural gem of western Nepal and a testament to the Rana era\'s architectural ambition.' },
+            { n: 'Bajrayogini Temple', c: [27.7146, 85.3164],
+                desc: 'Bajrayogini Temple is a 16th‑century Newar temple dedicated to the Buddhist goddess Bajrayogini, located on a hilltop in the Kathmandu Valley. The temple is one of the four major Yogini shrines in the valley and is revered by both Buddhists and Hindus. Its pagoda‑style structure features intricate woodcarvings and a striking golden image of the goddess. The temple\'s origins may have earlier religious roots, with the current structure dating to the Malla period. Bajrayogini is a tentative UNESCO World Heritage Site and a center for Tantric worship and pilgrimage.' },
+            { n: 'Ruru Kshetra', c: [27.9039, 83.4928],
+                desc: 'Ruru Kshetra is an ancient Hindu pilgrimage site located at the confluence of the Kali Gandaki and Ruru rivers in Palpa district. The site is considered one of the four major "Kshetra" (sacred fields) in Nepal, with mythological ties to the Hindu deity Vishnu. The main temple is dedicated to Ruru Rishikesh, and the site is believed to have been a center of worship since the early medieval period. Pilgrims gather here for ritual bathing, especially during the annual Ruru Fair, and the surrounding landscape is rich in natural beauty. Ruru Kshetra is a tentative UNESCO World Heritage Site and a place of deep spiritual resonance for Nepalese Hindus.' },
+            { n: 'Nuwakot Palace Complex', c: [27.9167, 85.1667],
+                desc: 'Nuwakot Palace Complex is an 18th‑century royal palace located on a hilltop in Nuwakot district, built by King Prithvi Narayan Shah in the 1740s. The palace served as a strategic stronghold during the unification campaign of Nepal and was the king\'s temporary residence during his conquests. The complex includes the royal palace, the Bhairav Temple, and a series of defensive walls and gates, offering panoramic views of the Trisuli River valley. The palace blends traditional Newar architecture with military functionality, featuring intricate woodcarvings and stone sculptures. Nuwakot Palace is a tentative UNESCO World Heritage Site and a symbol of Nepal\'s unification struggle.' },
+            { n: 'Janaki Mandir', c: [26.7288, 85.9237],
+                desc: 'Janaki Mandir is a 20th‑century Hindu temple located in Janakpur, built in 1910 in a distinctive Mughal‑Rajput architectural style. The temple is dedicated to Goddess Sita, the consort of Lord Rama, and marks the site where Sita is said to have been born and married to Rama. The temple\'s white marble structure features three domes, intricate carvings, and a central shrine with a golden image of Sita. It is one of the largest and most sacred temples in Nepal, drawing pilgrims from across India and Nepal, especially during the Vivaha Panchami festival. Janaki Mandir is a tentative UNESCO World Heritage Site and a testament to the enduring legacy of the Ramayana in the Mithila region.' },
+            { n: 'Sinja Valley', c: [29.2333, 81.8667],
+                desc: 'Sinja Valley is a historical site in the Jumla district that served as the capital of the Khasa kingdom from the 11th to the 14th centuries. The valley contains the ruins of the royal palace, temples, and irrigation systems that once supported a thriving civilization. It was the center of the Khasa Empire, which controlled much of the Karnali region and had cultural ties to Tibet and India. The site is known for its distinctive stone inscriptions and the Sinja Bhasa, an ancient Nepalese script. Sinja Valley is a tentative UNESCO World Heritage Site and a window into Nepal\'s medieval Himalayan kingdoms.' },
+            { n: 'Bhurti Temple Complex', c: [28.6333, 81.3500],
+                desc: 'Bhurti Temple Complex is a 12th‑ to 14th‑century temple site located in the Karnali region, featuring a group of medieval temples dedicated to Hindu deities. The temples are built in the typical Karnali style, with stone and brick construction, and are adorned with intricately carved images of gods and goddesses. The complex was a major religious center during the Khasa kingdom period and reflects the syncretic religious practices of the time. The site\'s temples, including the Bhurti Mandir, are notable for their unique architectural features and historical inscriptions. Bhurti Temple Complex is a tentative UNESCO World Heritage Site and an important archaeological treasure of western Nepal.' },
+            { n: 'Tilaurakot', c: [27.6333, 83.1167],
+                desc: 'Tilaurakot is an ancient archaeological site in the Kapilbastu district, identified as the capital of the Shakya kingdom where the Buddha spent his early life as Prince Siddhartha. The site contains the ruins of a fortified city, with palace foundations, moats, and a gateway dating back to the 6th to 3rd centuries BCE. Excavations have uncovered evidence of a royal palace, monastic structures, and a possible bathing pond used by the Buddha. Tilaurakot is considered one of the most important Buddhist pilgrimage sites in Nepal, alongside Lumbini. The site is a tentative UNESCO World Heritage Site and offers a direct connection to the Buddha\'s formative years.' },
+            { n: 'Mustang Caves', c: [29.0000, 83.5000],
+                desc: 'The Mustang Caves are a network of ancient cliff‑dwelling caves carved into the sandstone cliffs of the Kali Gandaki valley in Mustang. These caves date from the 10th to 15th centuries CE, with some evidence of prehistoric use as early as 100 BCE. The caves served as dwellings, monasteries, and burial chambers for the people of the Mustang region, and many contain murals, manuscripts, and artifacts. Some of the most famous caves include the Sky Caves of Chhoser and the caves near Lo Manthang, which have yielded Buddhist texts and paintings. The Mustang Caves are a tentative UNESCO World Heritage Site and a remarkable archaeological record of Himalayan life.' },
+            { n: 'Khokana', c: [27.6500, 85.3000],
+                desc: 'Khokana is a medieval Newari village located south of Kathmandu, with a history dating back to the 15th and 16th centuries. The village is renowned for its traditional oil‑pressing industry, with numerous wooden oil mills (ghattas) still in operation. Khokana\'s narrow streets, brick houses, and the five‑tiered temple of Shikhar style are well‑preserved examples of Newar urban planning. The village was heavily affected by the 2015 earthquake, but restoration efforts have preserved its cultural heritage. Khokana is a tentative UNESCO World Heritage Site and a living example of traditional Newar craftsmanship and community life.' },
+            { n: 'Kudan Archaeological Site', c: [27.5333, 83.0667],
+                desc: 'Kudan is a 6th‑century BCE Buddhist archaeological site located in the Kapilbastu district, believed to be the place where the Buddha first met his father after his enlightenment. The site contains the ruins of a stupa and a monastery complex, with a stone pillar marking the spot of their historic reunion. Excavations have uncovered bricks, pottery, and other artifacts from the early Buddhist period, confirming its ancient origins. Kudan is associated with a key moment in the Buddha\'s life, making it an important pilgrimage destination. The site is a protected archaeological monument and a significant addition to the Buddhist heritage of Nepal.' },
+            { n: 'Gotihawa', c: [27.5167, 83.1167],
+                desc: 'Gotihawa is a 6th‑century BCE Buddhist site in the Kapilbastu district, identified as the location of the Nigrodha (Banyan Tree) Grove where the Buddha is said to have performed miracles. The site contains the ruins of a stupa and an ancient vihara, with a stone pillar erected by Emperor Ashoka in the 3rd century BCE. The pillar\'s inscription records the Buddha\'s connection to the site and its importance as a place of pilgrimage. Gotihawa is one of several early Buddhist sites in the Kapilbastu region that shed light on the life and teachings of the Buddha. The site is a protected monument and a valuable piece of Nepal\'s Buddhist history.' },
+            { n: 'Nigali Sagar', c: [27.5667, 83.1667],
+                desc: 'Nigali Sagar is a 3rd‑century BCE archaeological site in the Kapilbastu district, featuring an Ashokan pillar with inscriptions from the Mauryan emperor. The pillar marks the location of a Buddhist stupa and monastery that were important pilgrimage sites during the Buddha\'s time. The inscription on the pillar records Ashoka\'s visit to the site and his devotion to the Buddhist faith. Nigali Sagar is one of the few surviving Ashokan pillars in Nepal and a direct link to the early spread of Buddhism. The site is a protected monument and a key evidence of Nepal\'s ancient Buddhist heritage.' },
+            { n: 'Handigoan', c: [27.6333, 85.2000],
+                desc: 'Handigoan, also known as Handigaon, is an ancient settlement in the Kathmandu Valley that served as the capital of the Licchavi kingdom from the 5th century CE onward. The site contains the ruins of the royal palace, temples, and water channels that were part of the Licchavi urban infrastructure. Handigoan was the political and cultural center of the Kathmandu Valley before the Malla period, and its architecture influenced later Newar building traditions. The site is known for its stone inscriptions, dating to the 5th and 6th centuries, which are among the oldest written records in Nepal. Handigoan is an important archaeological site that provides insights into the early history of the Kathmandu Valley.' },
+            { n: 'Makwanpur Gadhi', c: [27.4167, 84.8667],
+                desc: 'Makwanpur Gadhi is a 16th‑ to 18th‑century fort located in the Makwanpur district, built as a strategic stronghold by the Sen kings of Palpa. The fort is situated on a hilltop overlooking the confluence of the Rapti and Sankh rivers, offering commanding views of the surrounding plains. It played a key role in the Gorkha unification campaign, with Prithvi Narayan Shah capturing it in 1763 after a prolonged siege. The fort\'s ruins include the palace, a temple, and defensive walls that reflect the military architecture of the period. Makwanpur Gadhi is a historic site and a reminder of Nepal\'s turbulent unification history.' },
+            { n: 'Monasteries of Dolpo', c: [29.0000, 82.8000],
+                desc: 'The Monasteries of Dolpo are a group of 11th‑ to 12th‑century Buddhist monastic institutions located in the remote Dolpo region of western Nepal. These monasteries, including the famous Shey Gompa and Tsakang Gompa, are centers of the Nyingma and Bon traditions, preserving unique rituals and texts. The monasteries are known for their exquisite thangka paintings, murals, and sculptures that blend Tibetan and Newari artistic styles. Dolpo\'s monasteries are set in a stark, high‑altitude landscape that has kept them isolated and well‑preserved for centuries. The Monasteries of Dolpo are a treasure of Himalayan Buddhist art and spirituality, offering a glimpse into a deeply traditional way of life.' },
+            { n: 'Barga (Braga) Monastery', c: [28.5833, 84.0833],
+                desc: 'Barga (Braga) Monastery is a 15th‑ to 17th‑century Buddhist monastery located in the Manang district, perched on a hilltop above the village of Braga. The monastery is a four‑story structure with a golden roof, housing ancient murals, statues, and a collection of Buddhist manuscripts. It is affiliated with the Sakya tradition of Tibetan Buddhism and has been a center of learning and meditation for centuries. The monastery\'s location offers spectacular views of the Annapurna and Manaslu ranges, and it is a popular stop for trekkers on the Annapurna Circuit. Barga Monastery is a cultural and spiritual landmark of the Manang region, reflecting the deep Buddhist heritage of the area.' },
+            { n: 'Bhimeshwor Temple (Dolakha)', c: [27.6500, 86.2000],
+                desc: 'Bhimeshwor Temple is a 7th‑ to 11th‑century Hindu temple located in Dolakha district, dedicated to Bhimeshwor, a form of Lord Shiva. The temple is one of the most important Shiva shrines in Nepal, with its origins dating to the Licchavi period and its current structure rebuilt in the 14th century. It is a three‑story pagoda‑style temple with a copper‑plated roof and a golden pinnacle, set in a scenic hilltop location. The temple is known for its unique "swinging" idol, which is believed to sway during auspicious moments. Bhimeshwor Temple is a sacred pilgrimage site and a testament to the enduring devotion and architectural skill of Nepalese Hindus.' },
+        ];
+
+        // 6. Protected Areas
+        const PARK_DATA = [
+            { n: 'Chitwan National Park', c: [27.5250, 84.3650], area: 932,
+                desc: 'Chitwan National Park is a UNESCO World Heritage Site located in the Terai lowlands. It is renowned for its populations of Royal Bengal tigers and one‑horned rhinoceroses, along with elephants, crocodiles, and over 500 species of birds. The park offers jungle safaris, canoe rides, and elephant bathing experiences. Its rich biodiversity and conservation efforts make it one of Nepal\'s most visited protected areas. The park is also home to indigenous Tharu communities, whose cultural heritage is an integral part of the region.' },
+            { n: 'Sagarmatha National Park', c: [27.9367, 86.7340], area: 1148,
+                desc: 'Sagarmatha National Park is a UNESCO World Heritage Site that encompasses Mount Everest and the surrounding high‑altitude landscape. It is a sanctuary for rare species such as the snow leopard, Himalayan tahr, and red panda. The park is a prime destination for mountaineers and trekkers, offering breathtaking views and challenging routes. The park also preserves the cultural heritage of the Sherpa people, with many monasteries and mani walls. Its rugged terrain and extreme environment support a unique ecosystem.' },
+            { n: 'Langtang National Park', c: [28.1833, 85.3333], area: 1710,
+                desc: 'Langtang National Park was Nepal\'s first Himalayan national park, established in 1976. It protects the Langtang Valley, a region rich in flora and fauna, including the red panda, Himalayan black bear, and snow leopard. The park is a popular trekking destination, with trails passing through lush forests, alpine meadows, and traditional Tamang villages. The park also contains sacred lakes, such as Gosaikunda, which are pilgrimage sites for Hindus and Buddhists. The 2015 earthquake caused significant damage, but the park is recovering and remains a symbol of resilience.' },
+            { n: 'Bardia National Park', c: [28.4500, 81.3000], area: 968,
+                desc: 'Bardia National Park is the largest national park in the Terai, covering 968 km². It is home to a healthy population of Royal Bengal tigers, Asian elephants, and one‑horned rhinoceroses. The park is less visited than Chitwan, offering a more remote and wild experience. It also supports a diverse range of birds and is a key habitat for the endangered gharial crocodile. The park is surrounded by the Karnali River, which is a lifeline for the local wildlife.' },
+            { n: 'Rara National Park', c: [29.5167, 82.0833], area: 106,
+                desc: 'Rara National Park is centered around Rara Lake, Nepal\'s largest lake at an altitude of 2,990m. The park is a pristine wilderness with pine, oak, and rhododendron forests. It is home to the red panda, Himalayan black bear, and musk deer. The lake\'s crystal‑clear waters and surrounding mountains create a serene and picturesque landscape. The park is a popular destination for trekkers and nature lovers seeking tranquility.' },
+            { n: 'Shey Phoksundo National Park', c: [29.1667, 83.0000], area: 3555,
+                desc: 'Shey Phoksundo National Park is the largest national park in Nepal, covering 3,555 km² in the Trans‑Himalayan region. It protects the Phoksundo Lake, one of the deepest lakes in Nepal, and the Shey Gompa, a sacred Buddhist monastery. The park is home to the snow leopard, blue sheep, and Tibetan wolf. The landscape is characterized by arid valleys, high mountains, and ancient caves. The park is also a cultural treasure, with many ancient monasteries and Bonpo shrines.' },
+            { n: 'Khaptad National Park', c: [29.3167, 80.9500], area: 225,
+                desc: 'Khaptad National Park is a middle‑mountain park named after the Hindu sage Khaptad Baba. It is a sacred site with the Khaptad Lake and the Khaptad Danda, a plateau at 3,300m. The park is rich in medicinal plants and supports diverse wildlife, including the Himalayan black bear and musk deer. It is a popular pilgrimage and trekking destination, with panoramic views of the Seti and Karnali valleys. The park\'s spiritual and natural significance attracts both pilgrims and nature enthusiasts.' },
+            { n: 'Makalu Barun National Park', c: [27.9167, 87.1667], area: 2330,
+                desc: 'Makalu Barun National Park is a remote wilderness area surrounding Mount Makalu, the fifth‑highest peak in the world. It is a biodiversity hotspot, with forests ranging from tropical to alpine, supporting species like the snow leopard, red panda, and Himalayan tahr. The park offers some of the most challenging and pristine trekking routes in Nepal. Its rugged terrain and lack of infrastructure make it a haven for adventure seekers. The park is also an important catchment area for the Arun and Barun rivers.' },
+            { n: 'Shivapuri Nagarjun National Park', c: [27.7667, 85.3333], area: 159,
+                desc: 'Shivapuri Nagarjun National Park is a protected watershed near Kathmandu, providing drinking water to the capital. It is a popular day‑trip destination for hikers and birdwatchers, with trails through dense forests. The park is home to the Himalayan black bear, leopard, and numerous bird species. It also holds religious significance, with the Nagarjun hill named after the Buddhist philosopher Nagarjuna. The park\'s proximity to Kathmandu makes it a vital green space for residents.' },
+            { n: 'Banke National Park', c: [28.2000, 81.7000], area: 550,
+                desc: 'Banke National Park is a Terai park established in 2010, extending the tiger habitat corridor. It is home to the Royal Bengal tiger, Asian elephant, and one‑horned rhino. The park is also a haven for birds, with over 300 species recorded. It offers boat safaris on the Rapti River and jungle walks. The park is part of the larger Tiger Conservation Unit, helping to secure the future of these majestic animals.' },
+            { n: 'Shuklaphanta National Park', c: [28.8500, 80.2000], area: 305,
+                desc: 'Shuklaphanta National Park is a grassland and wetland park in far‑western Nepal. It is home to a large population of swamp deer and supports tigers, elephants, and rare birds. The park is also a Ramsar site, protecting wetlands that are critical for migratory birds. It is less visited, offering a serene and wild experience. The park\'s open grasslands provide excellent wildlife viewing opportunities.' },
+            { n: 'Parsa National Park', c: [27.4500, 84.4000], area: 627,
+                desc: 'Parsa National Park is a dense tropical forest park in the Terai, contiguous with Chitwan. It is home to tigers, elephants, leopards, and a wide variety of birds. The park offers jungle safaris and is a important wildlife corridor. It is less touristy, providing a more off‑the‑beaten‑path experience. The park\'s Sal forests and grassy meadows are a haven for wildlife.' },
+            { n: 'Annapurna Conservation Area', c: [28.5000, 84.0000], area: 7629,
+                desc: 'Annapurna Conservation Area is Nepal\'s largest protected area, encompassing the Annapurna range and its surrounding valleys. It is a biodiversity hotspot, with ecosystems ranging from subtropical forests to alpine meadows. The area is a world‑famous trekking destination, with routes like the Annapurna Circuit and Base Camp. It is home to diverse ethnic groups, including the Gurung and Thakali, who practice traditional agriculture and tourism. The conservation area balances development with environmental protection, making it a model for sustainable tourism.' },
+            { n: 'Manaslu Conservation Area', c: [28.5000, 84.5000], area: 1663,
+                desc: 'Manaslu Conservation Area surrounds Mount Manaslu, the eighth‑highest peak in the world. It is a remote and rugged region, with pristine forests and high‑altitude landscapes. The area is home to the snow leopard, Himalayan tahr, and red panda. It offers challenging trekking routes and a deep cultural experience with the local Tibetan‑Buddhist communities. The conservation area supports community‑based eco‑tourism and sustainable development.' },
+            { n: 'Kanchenjunga Conservation Area', c: [27.7000, 87.8000], area: 2035,
+                desc: 'Kanchenjunga Conservation Area is located in eastern Nepal, surrounding Mount Kanchenjunga, the third‑highest peak. It is a pristine wilderness with a diverse range of ecosystems and wildlife, including the snow leopard and Himalayan black bear. The area is a trekking paradise, offering spectacular views and a taste of remote Himalayan culture. The conservation area is also home to the Limbu people, who have a rich cultural heritage. It is managed with the participation of local communities, ensuring sustainable use.' },
+            { n: 'Gaurishankar Conservation Area', c: [27.9000, 86.2000], area: 2179,
+                desc: 'Gaurishankar Conservation Area covers the Rolwaling region and the area around Gaurishankar Peak. It is a high‑altitude landscape with glaciers, alpine meadows, and deep valleys. The area supports the snow leopard, Himalayan tahr, and musk deer. It is a challenging trekking destination, popular among experienced hikers. The conservation area is also culturally significant, with many monasteries and mani walls along the trails.' },
+            { n: 'Api Nampa Conservation Area', c: [29.7000, 80.9000], area: 1903,
+                desc: 'Api Nampa Conservation Area is a far‑western conservation area, encompassing the peaks of Api and Nampa. It is a pristine region with diverse ecosystems, from subtropical forests to high‑altitude meadows. The area is home to the snow leopard, Himalayan black bear, and blue sheep. It offers remote and unspoiled trekking routes, with breathtaking views. The conservation area is also important for its cultural heritage, with traditional villages and ancient monasteries.' },
+            { n: 'Koshi Tappu Wildlife Reserve', c: [26.6500, 87.0000], area: 175,
+                desc: 'Koshi Tappu Wildlife Reserve is a Ramsar site and the only wetland reserve in Nepal. It is located on the banks of the Koshi River, a major tributary of the Ganges. The reserve is home to the last remaining population of wild water buffalo in Nepal, along with numerous bird species, including migratory waterfowl. It is a paradise for birdwatchers and nature lovers. The reserve also supports local fishing and agriculture, balancing conservation with community needs.' },
+            { n: 'Dhorpatan Hunting Reserve', c: [28.4000, 83.0000], area: 1325,
+                desc: 'Dhorpatan Hunting Reserve is Nepal\'s only hunting reserve, established for controlled hunting of blue sheep and other game. It is located in the mid‑western region, with diverse habitats including alpine meadows, coniferous forests, and grasslands. The reserve is also a vital habitat for the snow leopard and Himalayan black bear. It offers trekking and wildlife viewing opportunities, with a focus on sustainable hunting practices. The reserve is managed by the Department of National Parks and Wildlife Conservation.' },
+        ];
+	
+
+        // ─── LOAD ALL DATA ──────────────────────────────────────────────────
+        function loadData() {
+            try {
+                // Metro
+                METRO_SUB_DATA.forEach(d => {
+                    const size = getCityIconSize(d.pop);
+                    const marker = L.marker(d.c, { icon: mkIcon('🏙️', size) })
+                        .bindPopup(popupHTML('🏙️', d.n, 'Metropolitan / Sub‑Metropolitan City', d.desc, d.pop))
+                        .addTo(LAYERS.metro.group);
+                    registerFeature(marker, { name: d.n, description: d.desc, population: d.pop,
+                        layerName: 'Metro / Sub‑Metro', emoji: '🏙️', preset: true, popLabel: '👥 Population' });
+                    LAYERS.metro.features.push(marker);
+                });
+
+                // Municipalities
+                MUNI_DATA.forEach(d => {
+                    const size = getCityIconSize(d.pop || 10000);
+                    const marker = L.marker(d.c, { icon: mkIcon('🏘️', size) })
+                        .bindPopup(popupHTML('🏘️', d.n, 'Municipality', d.desc, d.pop))
+                        .addTo(LAYERS.cities.group);
+                    registerFeature(marker, { name: d.n, description: d.desc, population: d.pop,
+                        layerName: 'Municipality', emoji: '🏘️', preset: true, popLabel: '👥 Population' });
+                    LAYERS.cities.features.push(marker);
+                });
+
+                // Tourism
+                TOURISM_DATA.forEach(d => {
+                    const marker = L.marker(d.c, { icon: mkIcon('🏡', 28) })
+                        .bindPopup(popupHTML('🏡', d.n, 'Tourism Settlement', d.desc))
+                        .addTo(LAYERS.tourism.group);
+                    registerFeature(marker, { name: d.n, description: d.desc, layerName: 'Tourism Settlement',
+                        emoji: '🏡', preset: true });
+                    LAYERS.tourism.features.push(marker);
+                });
+
+                // Airports
+                AIRPORT_DATA.forEach(d => {
+                    let size = 24;
+                    if (d.passengers >= 5000) size = 44;
+                    else if (d.passengers >= 2000) size = 36;
+                    else if (d.passengers >= 500) size = 30;
+                    else if (d.passengers >= 200) size = 24;
+                    else size = 18;
+                    const label = '✈️ Passengers per year';
+                    const marker = L.marker(d.c, { icon: mkIcon('✈️', size) })
+                        .bindPopup(popupHTML('✈️', d.n, 'Airport', d.desc, d.passengers * 1000, label))
+                        .addTo(LAYERS.airports.group);
+                    registerFeature(marker, { name: d.n, description: d.desc, population: d.passengers * 1000,
+                        popLabel: label, layerName: 'Airport', emoji: '✈️', preset: true });
+                    LAYERS.airports.features.push(marker);
+                });
+
+                // Heritage
+                HERITAGE_DATA.forEach(d => {
+                    const marker = L.marker(d.c, { icon: mkIcon('🏛️', 24) })
+                        .bindPopup(popupHTML('🏛️', d.n, 'Heritage Site', d.desc))
+                        .addTo(LAYERS.heritage.group);
+                    registerFeature(marker, { name: d.n, description: d.desc, layerName: 'Heritage Site',
+                        emoji: '🏛️', preset: true });
+                    LAYERS.heritage.features.push(marker);
+                });
+
+                // ─── FIXED: Protected Areas – using L.circle ──────────────
+                PARK_DATA.forEach(d => {
+                    const style = protectedCircle(d.area);
+                    const circle = L.circle(d.c, style)
+                        .bindPopup(popupHTML('🌳', d.n, 'Protected Area', d.desc, null, null, d.area, '📐 Area'))
+                        .addTo(LAYERS.nationalparks.group);
+                    registerFeature(circle, { name: d.n, description: d.desc, area: d.area,
+                        layerName: 'Protected Area', emoji: '🌳', preset: true, areaLabel: '📐 Area' });
+                    LAYERS.nationalparks.features.push(circle);
+                });
+
+                renderLayerPanel();
+            } catch (err) {
+                console.error('Error loading data:', err);
+                alert('Error loading map data. Check console.');
+            }
+        }
+
+        // ─── RENDER LAYER PANEL ────────────────────────────────────────────
+        function renderLayerPanel() {
+            const list = document.getElementById('layerList');
+            if (!list) return;
+            list.innerHTML = '';
+            Object.entries(LAYERS).forEach(([key, L]) => {
+                const d = document.createElement('div');
+                d.className = 'layer-item';
+                d.innerHTML = `
+              <div class="ldot" style="background:${L.color}"></div>
+              <span class="lname">${L.emoji} ${L.name}</span>
+              <span class="lcount">${L.features.length}</span>
+              <div class="tog ${L.visible?'on':''}" data-key="${key}"></div>`;
+                d.querySelector('.tog').addEventListener('click', e => { e.stopPropagation();
+                    toggleLayer(key); });
+                list.appendChild(d);
+            });
+        }
+
+        function toggleLayer(key) {
+            LAYERS[key].visible = !LAYERS[key].visible;
+            if (LAYERS[key].visible) map.addLayer(LAYERS[key].group);
+            else map.removeLayer(LAYERS[key].group);
+            renderLayerPanel();
+        }
+
+        // ─── MAP CLICK HANDLER ──────────────────────────────────────────────
+        map.on('click', function(e) {
+            if (editMode === 'city') {
+                pendingCityLatLng = e.latlng;
+                showCityModal();
+                return;
+            }
+            if (editMode === 'airport') {
+                const name = prompt('Airport name:');
+                if (!name) return;
+                const desc = prompt('Description:') || '';
+                const pop = parseInt(prompt('Annual passengers (approx):') || '0');
+                let size = 24;
+                if (pop >= 5000) size = 44;
+                else if (pop >= 2000) size = 36;
+                else if (pop >= 500) size = 30;
+                else if (pop >= 200) size = 24;
+                else size = 18;
+                const label = '✈️ Passengers per year';
+                const marker = L.marker(e.latlng, { icon: mkIcon('✈️', size) }).addTo(LAYERS.airports.group);
+                const extra = pop ? ` · ${label} ${pop.toLocaleString()}` : '';
+                marker.bindPopup(popupHTML('✈️', name, 'Airport', desc + extra, pop, label));
+                const data = { name, description: desc, population: pop, popLabel: label, layerName: 'Airport',
+                    emoji: '✈️', preset: false, layer: 'airports' };
+                registerFeature(marker, data);
+                LAYERS.airports.features.push(marker);
+                userFeatures.push(data);
+                renderLayerPanel();
+                setEditMode(null);
+                showFeatureDetails(data);
+                return;
+            }
+            if (editMode === 'protected') {
+                addProtectedArea(e.latlng);
+                return;
+            }
+            if (editMode === 'highway' || editMode === 'expressway' || editMode === 'railway') {
+                startRoad(editMode, e.latlng);
+                return;
+            }
+            showFeatureDetails(null);
+        });
+
+        // ─── KEYBOARD SHORTCUTS ──────────────────────────────────────────────
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && isDrawing) cancelDrawing();
+            if (e.key === 'Enter' && isDrawing) finishDrawing();
+        });
+
+        // ─── SAVE / LOAD ─────────────────────────────────────────────────────
+        function saveData() {
+            const data = {
+                version: '1.0',
+                exportedAt: new Date().toISOString(),
+                features: userFeatures.map(f => {
+                    const base = {
+                        type: f.layer,
+                        name: f.name,
+                        description: f.description || '',
+                        emoji: f.emoji,
+                        layerName: f.layerName,
+                    };
+                    if (f.layer === 'metro' || f.layer === 'cities') {
+                        base.cityType = f.cityType || (f.layer === 'metro' ? 'metro' : 'municipality');
+                        base.population = f.population || 0;
+                        const marker = LAYERS[f.layer].features.find(m => m.featureData === f);
+                        if (marker) {
+                            const latlng = marker.getLatLng();
+                            base.lat = latlng.lat;
+                            base.lng = latlng.lng;
+                        }
+                    } else if (f.layer === 'airports') {
+                        base.population = f.population || 0;
+                        base.popLabel = f.popLabel || '✈️ Passengers per year';
+                        const marker = LAYERS[f.layer].features.find(m => m.featureData === f);
+                        if (marker) {
+                            const latlng = marker.getLatLng();
+                            base.lat = latlng.lat;
+                            base.lng = latlng.lng;
+                        }
+                    } else if (f.layer === 'nationalparks') {
+                        base.area = f.area || 0;
+                        base.areaLabel = f.areaLabel || '📐 Area';
+                        const marker = LAYERS[f.layer].features.find(m => m.featureData === f);
+                        if (marker) {
+                            const latlng = marker.getLatLng();
+                            base.lat = latlng.lat;
+                            base.lng = latlng.lng;
+                        }
+                    } else if (f.layer === 'highways' || f.layer === 'expressways' || f.layer === 'railways') {
+                        const marker = LAYERS[f.layer].features.find(m => m.featureData === f);
+                        if (marker && marker.getLatLngs) {
+                            const pts = marker.getLatLngs();
+                            if (Array.isArray(pts) && pts.length) {
+                                base.points = pts.map(p => [p.lat, p.lng]);
+                            }
+                        }
+                    }
+                    return base;
+                })
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `nepal_data_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            alert('✅ Data saved successfully!');
+        }
+
+        function loadDataFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!data.features || !Array.isArray(data.features)) {
+                        alert('Invalid file format.');
+                        return;
+                    }
+                    const confirmed = confirm(
+                        `This will load ${data.features.length} features. Existing user-added features will be cleared. Continue?`
+                        );
+                    if (!confirmed) return;
+
+                    clearUserFeatures();
+
+                    let loaded = 0;
+                    data.features.forEach(f => {
+                        const latlng = f.lat !== undefined && f.lng !== undefined ? L.latLng(f.lat, f.lng) :
+                            null;
+                        const layerKey = f.type;
+                        if (!LAYERS[layerKey]) {
+                            console.warn('Unknown layer:', layerKey);
+                            return;
+                        }
+                        if (f.points && Array.isArray(f.points) && f.points.length > 1) {
+                            const pts = f.points.map(p => L.latLng(p[0], p[1]));
+                            let style = {};
+                            if (layerKey === 'highways') style = { color: '#ff6b35', weight: 5 };
+                            else if (layerKey === 'expressways') style = { color: '#2563EB', weight: 6 };
+                            else if (layerKey === 'railways') style = { color: '#a78bfa', weight: 4,
+                                dashArray: '8,4' };
+                            const poly = L.polyline(pts, style).addTo(LAYERS[layerKey].group);
+                            const dataObj = { name: f.name, description: f.description || '',
+                                layerName: f.layerName || LAYERS[layerKey].name, emoji: f.emoji || '🛣️',
+                                preset: false, layer: layerKey };
+                            poly.bindPopup(popupHTML(dataObj.emoji, dataObj.name, dataObj.layerName, dataObj
+                                .description));
+                            registerFeature(poly, dataObj);
+                            LAYERS[layerKey].features.push(poly);
+                            userFeatures.push(dataObj);
+                            loaded++;
+                            return;
+                        }
+                        if (!latlng) {
+                            console.warn('Missing coordinates for', f.name);
+                            return;
+                        }
+                        let emoji = f.emoji || '📍';
+                        let size = currentIconSize;
+                        let dataObj = { name: f.name, description: f.description || '', layerName: f.layerName ||
+                                LAYERS[layerKey].name, emoji, preset: false, layer: layerKey };
+                        if (layerKey === 'metro' || layerKey === 'cities') {
+                            dataObj.population = f.population || 0;
+                            dataObj.popLabel = '👥 Population';
+                            dataObj.cityType = f.cityType || (layerKey === 'metro' ? 'metro' : 'municipality');
+                            size = getCityIconSize(dataObj.population);
+                            if (layerKey === 'metro') emoji = '🏙️';
+                            else emoji = '🏘️';
+                            dataObj.emoji = emoji;
+                        } else if (layerKey === 'airports') {
+                            dataObj.population = f.population || 0;
+                            dataObj.popLabel = f.popLabel || '✈️ Passengers per year';
+                            size = 24;
+                            if (dataObj.population >= 5000) size = 44;
+                            else if (dataObj.population >= 2000) size = 36;
+                            else if (dataObj.population >= 500) size = 30;
+                            else if (dataObj.population >= 200) size = 24;
+                            else size = 18;
+                            emoji = '✈️';
+                            dataObj.emoji = emoji;
+                        } else if (layerKey === 'nationalparks') {
+                            dataObj.area = f.area || 0;
+                            dataObj.areaLabel = f.areaLabel || '📐 Area';
+                            emoji = '🌳';
+                            dataObj.emoji = emoji;
+                            size = 24;
+                        }
+                        const marker = L.marker(latlng, { icon: mkIcon(emoji, size) }).addTo(LAYERS[layerKey]
+                            .group);
+                        let extra = '';
+                        if (dataObj.population) extra += ` · 👥 Population ${dataObj.population.toLocaleString()}`;
+                        if (dataObj.area) extra += ` · 📐 Area ${dataObj.area.toLocaleString()} km²`;
+                        marker.bindPopup(popupHTML(emoji, dataObj.name, dataObj.layerName, dataObj.description +
+                            extra, dataObj.population, dataObj.popLabel, dataObj.area, dataObj.areaLabel));
+                        registerFeature(marker, dataObj);
+                        LAYERS[layerKey].features.push(marker);
+                        userFeatures.push(dataObj);
+                        loaded++;
+                    });
+                    renderLayerPanel();
+                    alert(`✅ Loaded ${loaded} features successfully!`);
+                } catch (err) {
+                    alert('❌ Failed to load file: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function clearUserFeatures() {
+            userFeatures.forEach(f => {
+                const layerKey = f.layer;
+                if (LAYERS[layerKey]) {
+                    const toRemove = [];
+                    LAYERS[layerKey].features.forEach((item, idx) => {
+                        if (item.featureData && item.featureData === f) {
+                            item.remove();
+                            toRemove.push(idx);
+                        }
+                    });
+                    toRemove.sort((a, b) => b - a).forEach(idx => {
+                        LAYERS[layerKey].features.splice(idx, 1);
+                    });
+                }
+            });
+            userFeatures = [];
+            renderLayerPanel();
+        }
+
+        // ─── INIT ────────────────────────────────────────────────────────────
+        loadData();
+        updateCursor();
+        updateHint();
+
+        // Assign IDs to toolbar buttons for highlighting
+        document.querySelectorAll('#toolbar button').forEach(b => {
+            const txt = b.textContent.trim();
+            if (txt.includes('Add City')) b.id = 'btnCity';
+            else if (txt.includes('Add Airport')) b.id = 'btnAirport';
+            else if (txt.includes('Protected')) b.id = 'btnProtected';
+            else if (txt.includes('Highway') && !txt.includes('Express') && !txt.includes('Rail')) b.id =
+            'btnHighway';
+            else if (txt.includes('Expressway')) b.id = 'btnExpressway';
+            else if (txt.includes('Railway')) b.id = 'btnRailway';
+            else if (txt.includes('Edit')) b.id = 'btnEdit';
+            else if (txt.includes('Delete')) b.id = 'btnDelete';
+        });
+    </script>
+</body>
+</html>
