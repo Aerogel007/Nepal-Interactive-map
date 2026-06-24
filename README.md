@@ -1,4 +1,4 @@
-n interactive map of Nepal that runs on web browser in html. also has node.js with tileserver.dl to load map offline as well if the api doesn't work
+qn interactive map of Nepal that runs on web browser in html. also has node.js with tileserver.dl to load map offline as well if the api doesn't work
 
 tips to use offline app:
 
