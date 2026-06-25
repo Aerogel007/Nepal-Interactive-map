@@ -1,6 +1,6 @@
 an interactive map of Nepal that runs on web browser in html. also has node.js with tileserver.dl to load map offline as well if the api doesn't work
 
-before opeaning the html file, get your API key from https://cloud.maptiler.com/account/keys/ and paste it in the code. currently the placeholder or the KEY in the code is named here. 
+before opening the html file, get your API key from https://cloud.maptiler.com/account/keys/ and paste it in the code. currently the placeholder or the KEY in the code is named here. 
 
 tips to use offline app:
 
